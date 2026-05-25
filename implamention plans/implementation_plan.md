@@ -1,243 +1,99 @@
-# Implementation Plan — Security & UI Enhancements (v2)
+# Implementation Plan — Interactive Project Hover & Dynamic Donation Tiers
 
-> **Revised from v1** — Added: Zod schema validation, idempotency key protection, stripe.js service layer refactor, error code taxonomy, duplicate-subscription guard, a11y improvements, and richer CSS animation spec.
-
----
+This implementation plan outlines the architecture, styling changes, and backend/frontend integrations required to deliver a premium user experience for project details expansion and single-source-of-truth donation tier mapping.
 
 ## User Review Required
 
 > [!IMPORTANT]
-> **Stripe Secret Key is 100% Server-Side**
-> The client ONLY uses the **publishable key** (safe to expose) to collect a tokenised `PaymentMethod` via Stripe Elements. The actual subscription and customer creation is performed by the backend using the **secret key**, which never leaves the server. This satisfies PCI-DSS SAQ-A compliance.
+> **Mobile & Accessibility Guard for Hover Expansion**
+> While hover-based expansion creates a breathtaking desktop experience, hover states do not exist on touch devices (phones/tablets). To maintain an outstanding mobile experience, we will **preserve and enhance the click-to-expand toggle state and accessible buttons** alongside the hover-expand behavior. This ensures absolute compatibility across all screen sizes and complies with WCAG accessibility guidelines.
 
-> [!WARNING]
-> **Do NOT run `db:setup` on a live database without a backup.**
-> The seed script calls `deleteMany()` on every table before inserting. Only run it on development or a freshly provisioned DB.
-
-> [!CAUTION]
-> **3D Secure / SCA**
-> European cards increasingly require Strong Customer Authentication. The plan explicitly handles the `"requires_action"` / `"requires_payment_method"` subscription states so donations from EU donors are not silently dropped.
-
----
-
-## Open Questions
-
-1. Should the `/subscribe` endpoint allow anonymous donors (no user account), or must every donor have a persisted `User` row? *(Current plan: auto-create a minimal `User` row.)*
-2. Should a donor who already has an active subscription be blocked from subscribing a second time, or allowed (multiple tiers)?
-3. Is the "raised amount" data (`fundedAmount`, `fundingGoal`) still being used anywhere else — e.g. admin panels — or can those columns be ignored entirely on the front-end?
+> [!TIP]
+> **Database Single-Source-of-Truth**
+> To prevent duplicate data and editing friction, the **`Tier` table** in the database will become the single source of truth for perks. Editing the perks array for "Regular", "Shareholder", or "Patron" tiers will **automatically propagate** to both the bottom details list and the top-grid donation boxes at runtime.
 
 ---
 
 ## Proposed Changes
 
-### 1 — Backend: Stripe Service Layer Refactor
+We will modify client CSS, components, page fallbacks, and the backend content delivery route.
 
-The existing `stripe.js` service has a bug: it tries to `attach` a `paymentMethodId` **before** a customer exists, which Stripe rejects. We also need to expose a clean API surface for the route layer.
+### 1. Hover-Expandable Project Cards with Smooth CSS Transitions
 
-#### [MODIFY] [stripe.js](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/server/src/services/stripe.js)
+Currently, `-webkit-line-clamp` is used to truncate description text. Since line-clamp is a discrete property and cannot be animated, we will refactor the card to use a `max-height` transition combined with a sleek glassmorphic gradient overlay that fades out when expanded.
 
-**Improvements over v1:**
-- Fix the premature `paymentMethods.attach()` — Stripe requires the customer to exist first. Correct order: `customers.create` → `paymentMethods.attach`.
-- Export a single `upsertStripeCustomer({ email, name, paymentMethodId, existingCustomerId? })` helper that handles both new and returning customers in one call, eliminating the branching logic that currently lives in the route.
-- Add `idempotencyKey` option to `createStripeSubscription` (use a deterministic hash of `customerId + amountCents`) to prevent duplicate subscriptions if the client retries.
-- Export the `stripe` singleton at the bottom for the webhook handler to reuse *(already done — keep it)*.
-
----
-
-### 2 — Backend: Subscription Route
-
-#### [MODIFY] [donations.js](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/server/src/routes/donations.js)
-
-**v1 flow was correct in concept. Improvements:**
-
-1. **Zod validation** — replace the manual `if (!email || ...)` check with a Zod schema:
-   ```js
-   import { z } from 'zod';
-   const SubscribeSchema = z.object({
-     email:           z.string().email(),
-     firstName:       z.string().min(1).max(80),
-     lastName:        z.string().min(1).max(80),
-     country:         z.string().min(2).max(60),
-     paymentMethodId: z.string().startsWith('pm_'),
-     amount:          z.number().int().min(100), // cents, min $1
-   });
-   ```
-   Return `400` with structured field-level errors so the client can map them.
-
-2. **Duplicate-subscription guard** — before creating a new Stripe subscription, query Stripe for any existing `active` or `trialing` subscription for that customer. If one exists for the same `amount`, return `409 Conflict` with a meaningful message instead of charging the card twice.
-
-3. **Atomic DB upsert** — wrap the `User` upsert + `Transaction` insert in a `prisma.$transaction([...])` block so a DB failure after Stripe success doesn't leave orphaned data.
-
-4. **Full flow (corrected step order)**:
-   1. Parse & validate body with Zod → return `400` on failure.
-   2. `upsertStripeCustomer(...)` — create or retrieve customer, attach payment method.
-   3. Duplicate-subscription guard.
-   4. `createStripeSubscription({ customerId, amountCents, idempotencyKey })`.
-   5. Upsert `User` row in DB (create if missing, update `stripeCustomerId` if needed).
-   6. If subscription `status === 'active'` → insert `Transaction(SUCCEEDED)` + respond `201`.
-   7. If subscription `status === 'incomplete'` (SCA required) → respond `202` with `{ clientSecret, status: 'requires_action' }`.
-   8. Any Stripe `StripeCardError` → respond `402` (Payment Required) with user-facing message.
-   9. Unknown errors → pass to Express error handler via `next(error)`.
-
-5. **Structured error response shape** (consistency across the API):
-   ```json
-   { "error": "card_declined", "message": "Your card was declined.", "field": null }
-   ```
-
----
-
-### 3 — Client: StripeForm — Proper Payment Flow
-
-#### [MODIFY] [StripeForm.jsx](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/components/checkout/StripeForm.jsx)
-
-**Improvements over v1:**
-
-1. **Remove all mocked code** — delete the `await new Promise(resolve => setTimeout(resolve, 1000))` and `paymentMethodId: 'pm_mock_123'`.
-
-2. **Correct `createPaymentMethod` call** with billing details to reduce card decline rate:
-   ```js
-   const { paymentMethod, error } = await stripe.createPaymentMethod({
-     type: 'card',
-     card: elements.getElement(CardElement),
-     billing_details: {
-       name: `${formData.firstName} ${formData.lastName}`,
-       email: formData.email,
-     },
-   });
-   ```
-
-3. **Handle SCA** — if the backend responds with `status: 'requires_action'`:
-   ```js
-   const { error: confirmError } = await stripe.confirmCardPayment(clientSecret);
-   if (confirmError) throw new Error(confirmError.message);
-   ```
-
-4. **Error display** — map structured backend error codes (e.g. `card_declined`, `insufficient_funds`) to friendly user messages rather than raw API strings.
-
-5. **UX — disable submit button** while `!stripe || !elements` OR while `loading`, not just `!stripe`.
-
-6. **Accessibility** — add `aria-live="polite"` on the error `<div>` so screen readers announce payment errors.
-
----
-
-### 4 — Client: Click-to-Expand Project Cards
-
-#### [MODIFY] [ProjectsSection.jsx](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/components/donation/ProjectsSection.jsx)
-
-**Improvements over v1:**
-
-1. Remove entire `.project-card__funding` block (progress bar, funded/goal amounts, percentage).
-
-2. Use a `Set` in state for tracked expanded IDs — cleaner than an object map:
-   ```js
-   const [expanded, setExpanded] = useState(new Set());
-   const toggle = (id) => setExpanded(prev => {
-     const next = new Set(prev);
-     next.has(id) ? next.delete(id) : next.add(id);
-     return next;
-   });
-   ```
-
-3. **Accessibility** — make the card a `<button>` or add `role="button"` + `tabIndex={0}` + `onKeyDown` handler (Enter / Space) so keyboard users can expand cards too.
-
-4. **`aria-expanded`** attribute on the card toggles for screen readers.
-
-5. Pass `isExpanded` as a prop-style boolean to the card element to drive both the CSS class and the `aria-expanded` attribute.
+```mermaid
+graph TD
+  A[Project Card] -->|Hover or Click/Focus| B[Animate Max-Height from 4.8em to 25em]
+  A -->|Hover or Click/Focus| C[Fade Out Bottom Gradient Mask]
+  A -->|Hover or Click/Focus| D[Rotate Chevron Icon 180 degrees]
+```
 
 #### [MODIFY] [ProjectsSection.css](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/components/donation/ProjectsSection.css)
+* Replace the rigid `-webkit-line-clamp` properties on `.project-card__details` with a responsive wrapper.
+* Set `.project-card__details` default state:
+  * `max-height: 4.8em;` (exactly 3 lines under 1.6 line-height)
+  * `overflow: hidden;`
+  * `position: relative;`
+  * `transition: max-height 0.4s cubic-bezier(0.25, 1, 0.5, 1), color 0.3s ease;`
+* Add `.project-card__fade-mask`:
+  * A linear gradient overlay `linear-gradient(to bottom, rgba(26, 21, 44, 0), var(--color-bg-card))` to subtly blend the clipped text into the card's background.
+  * `transition: opacity 0.3s ease;`
+* Add hover and expanded selectors:
+  * `.project-card:hover .project-card__details`, `.project-card.project-card--expanded .project-card__details`:
+    * Expand `max-height` smoothly to `400px` (or `25em`).
+  * `.project-card:hover .project-card__fade-mask`, `.project-card.project-card--expanded .project-card__fade-mask`:
+    * Set `opacity: 0` to cleanly show the full, uninterrupted text.
+  * `.project-card:hover .project-card__chevron`, `.project-card.project-card--expanded .project-card__chevron`:
+    * Rotate chevron 180 degrees (`transform: rotate(180deg)`).
 
-1. Remove all `.project-card__funding*`, `.project-card__progress*`, `.project-card__funded`, `.project-card__goal`, `.project-card__percent` rules — dead code once the HTML is gone.
-
-2. Animate card expansion without `height: auto` jank — use `max-height` transition:
-   ```css
-   .project-card__details {
-     /* collapsed */
-     display: -webkit-box;
-     -webkit-line-clamp: 3;
-     -webkit-box-orient: vertical;
-     overflow: hidden;
-     max-height: 4.8em;           /* ~3 lines × 1.6 line-height */
-     transition: max-height 0.35s ease, -webkit-line-clamp 0s 0.35s;
-   }
-   .project-card--expanded .project-card__details {
-     -webkit-line-clamp: unset;
-     overflow: visible;
-     max-height: 60em;            /* large enough for any description */
-     transition: max-height 0.35s ease;
-   }
-   ```
-
-3. Chevron icon — rotates 180° on expand, smooth cubic-bezier:
-   ```css
-   .project-card__chevron {
-     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-   }
-   .project-card--expanded .project-card__chevron {
-     transform: rotate(180deg);
-   }
-   ```
-
-4. Remove the `transform: translateY(-4px)` hover lift from `.project-card:hover` when expanded, to avoid jarring layout shift while reading.
+#### [MODIFY] [ProjectsSection.jsx](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/components/donation/ProjectsSection.jsx)
+* Add `<div className="project-card__fade-mask" />` dynamically at the end of the details block.
+* Synchronize hover styles with click interactions to guarantee accessible functionality for screen-readers and mobile users.
 
 ---
 
-### 5 — Client: Fallback Data for Donation Tiers & Objectives
+### 2. Single-Source-of-Truth Donation Tiers & Automatic Propagations
+
+To make donation perks easily editable in one location, we will dynamically link the `DonationBox` models to the `Tier` models. When a user updates the perks inside a `Tier` record, the application will automatically format and push those perks to the `DonationCard` components in the payment grid.
+
+#### [MODIFY] [content.js](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/server/src/routes/content.js)
+* Update the public content controller `GET /api/v1/content` to automatically inject matching tier perks:
+  * Iterate through fetched `donationBoxes`.
+  * For each `box` where `isCustomAmount` is `false`:
+    * Find the matching `Tier` record where `tier.name.toLowerCase() === box.title.toLowerCase()`.
+    * If a match exists, parse `tier.perks` (JSON list).
+    * Map the detailed perks to shorter, card-friendly versions or join the perks array using `" | "` to dynamically populate the `box.tierDetails` string.
+    * This ensures that editing the `Tier` table updates the subscription cards instantly at query time with zero redundancy!
 
 #### [MODIFY] [DonationPage.jsx](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/pages/DonationPage.jsx)
+* Update the client-side `useEffect` catch block fallback data:
+  * Fully populate the fallback `tiers` array with official, rich perks matching the donation guidelines.
+  * Map `donationBoxes` dynamically to construct their `tierDetails` directly from the `tiers` fallback perks array.
+  * This guarantees that editing the local tiers fallback list automatically updates the donation boxes correctly, matching the production database's runtime behavior even in offline/demo mode!
 
-**Improvement over v1:** The current `catch` block fallback has empty `tiers: []` and `milestones: []`. Fill them in so the `DonationProgramDetails` section renders even when the API is unreachable (offline demo, slow DB start, etc.).
-
-Fallback data must match [Monthly Donation Program tiers and objectives.md](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/PDF/Monthly%20Donation%20Program%20tiers%20and%20objectives.md) exactly:
-
-**Tiers fallback:**
-| Tier | Range | Perks |
-|------|-------|-------|
-| Regular | $1–$84/mo | Newsletter, yearly zoom event, seed coupons (1 seed = $1), group tours at discounted rate |
-| Shareholder | $85–$169/mo | All Regular perks + quarterly progression meetings, campaign voting, design voting; +1 vote per $10 above $75 |
-| Patron | $170+/mo | All Shareholder perks + name on camp T-shirt sponsors section, quarterly social media thank-you posts |
-
-**Milestones fallback:**
-| Amount | Label | Description | Repeatable |
-|--------|-------|-------------|------------|
-| $1,020 | Silver "OMP Friend" | Silver certificate sent to your home | No |
-| $2,040 | Gold "OMP Friend" | Gold certificate sent to your home | No |
-| $3,060 | Platinum "OMP Friend" | Platinum certificate sent to your home | No |
-| $6,000 | Camp Patron | Camp named after you; picture printed at camp center | Yes |
-| $10,000 | Patreon Wall | Permanent place on OMP's patreon wall at the center | No |
-
----
-
-## Files Changed Summary
-
-| File | Type | Reason |
-|------|------|--------|
-| `server/src/services/stripe.js` | MODIFY | Fix attach-before-create bug; add `upsertStripeCustomer`; add idempotency |
-| `server/src/routes/donations.js` | MODIFY | Zod validation, real Stripe calls, atomic DB tx, SCA handling, error codes |
-| `client/src/components/checkout/StripeForm.jsx` | MODIFY | Remove mock, real `createPaymentMethod`, SCA confirm, a11y |
-| `client/src/components/donation/ProjectsSection.jsx` | MODIFY | Remove funding block, Set-based expand state, keyboard a11y |
-| `client/src/components/donation/ProjectsSection.css` | MODIFY | Remove dead rules, `max-height` transition, chevron animation |
-| `client/src/pages/DonationPage.jsx` | MODIFY | Populate tiers & milestones in offline fallback data |
+#### [MODIFY] [seed.js](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/server/prisma/seed.js)
+* Ensure that the seeded tiers' perks are rich, descriptive, and perfectly match the official tiers structure.
+* Remove static details from the seeded donation boxes where possible to rely entirely on the dynamic backend mapper.
 
 ---
 
 ## Verification Plan
 
-### Build Checks
-```bash
-# In /client
-npm run build          # Must compile with 0 errors
+### Automated & Syntactic Checks
+1. Validate client build: Run `npm run build` inside `client/` to verify CSS compiles cleanly.
+2. Validate backend syntax: Run `npm run dev` in `server/` to verify no import or query execution errors in Prisma.
 
-# In /server
-npm run dev            # Must start with no import/syntax errors
-```
-
-### Stripe Integration Test (test mode keys)
-1. Use Stripe test card `4242 4242 4242 4242` (exp any future date, CVC any 3 digits).
-2. Confirm a `201` response and a new `User` + `Transaction` row appear in the DB.
-3. Use 3DS test card `4000 0025 0000 3155` — confirm the client renders the Stripe authentication modal and the subscription becomes `active` after confirmation.
-4. Use declined card `4000 0000 0000 9995` — confirm a `402` error with a user-friendly message appears in the form.
-
-### Manual UI Checks
-1. Project cards display **no** progress bar or raised amount.
-2. Clicking a card expands it smoothly; clicking again collapses it. Tab + Enter works.
-3. "Donation Tiers" and "Total Donation Objectives" sections appear below the donation grid both **with** the API running and **without** (kill the server, reload — fallback data must render).
+### Manual Verification
+1. **Interactive Hover Test**:
+   * Open the donation site. Hover your mouse cursor over the project cards (e.g., *Train The Trainer Camp*).
+   * Verify that the description container expands smoothly downwards without any layout breakages.
+   * Verify that the text fade gradient overlay disappears as the card expands.
+   * Verify that the expand chevron rotates 180 degrees.
+2. **Accessibility & Responsive Test**:
+   * Inspect the project card using Chrome DevTools in Mobile Emulation mode.
+   * Click the "Read more" button and verify the card expands properly on tap, updating the text to "Show less".
+   * Press `Tab` to navigate to the expand button and press `Enter`/`Space`. Verify correct toggle behavior.
+3. **Automatic Tier Propagations Test**:
+   * Update a tier's perks in `seed.js` or directly in the database.
+   * Refresh the page. Verify both the **Donation Tier Grid** (below) and the **Donation Box Cards** (above) instantly display the new, updated perk values.

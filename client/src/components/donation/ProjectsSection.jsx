@@ -44,17 +44,25 @@ export default function ProjectsSection({ projects }) {
                 key={project.id}
                 className={`project-card${isExpanded ? ' project-card--expanded' : ''} animate-fade-in-up animate-delay-${index + 1}`}
                 aria-expanded={isExpanded}
+                onClick={() => toggle(project.id)}
               >
                 <div className="project-card__icon-wrap">
                   <ProjectIcon name={project.projectName} />
                 </div>
                 <h3 className="project-card__name">{project.projectName}</h3>
-                <p className="project-card__details">{project.details}</p>
+                
+                <div className="project-card__details-wrap">
+                  <p className="project-card__details">{project.details}</p>
+                  <div className="project-card__fade-mask" />
+                </div>
 
                 {/* Dedicated expand/collapse button — accessible to keyboard and screen readers */}
                 <button
                   className="project-card__expand-btn"
-                  onClick={() => toggle(project.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggle(project.id);
+                  }}
                   onKeyDown={(e) => handleKeyDown(e, project.id)}
                   aria-label={isExpanded ? `Show less about ${project.projectName}` : `Read more about ${project.projectName}`}
                   type="button"

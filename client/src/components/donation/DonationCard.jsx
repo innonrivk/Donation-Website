@@ -5,6 +5,12 @@ export default function DonationCard({ box, onDonate, isPopular = false }) {
     return null; // Custom amount card is handled separately
   }
 
+  const perksList = Array.isArray(box.perks)
+    ? box.perks
+    : (box.tierDetails ? box.tierDetails.split('|') : []);
+
+  const detailsText = box.tierDetails || (Array.isArray(box.perks) ? box.perks.join(' | ') : '');
+
   return (
     <div className={`donation-card ${isPopular ? 'donation-card--popular' : ''}`}>
       {isPopular && (
@@ -18,10 +24,10 @@ export default function DonationCard({ box, onDonate, isPopular = false }) {
           <span className="donation-card__period">/mo</span>
         </div>
       </div>
-      <p className="donation-card__details">{box.tierDetails}</p>
+      {detailsText && <p className="donation-card__details">{detailsText}</p>}
       <div className="donation-card__divider" />
       <ul className="donation-card__perks">
-        {box.tierDetails.split('|').map((perk, i) => (
+        {perksList.map((perk, i) => (
           <li key={i} className="donation-card__perk">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
