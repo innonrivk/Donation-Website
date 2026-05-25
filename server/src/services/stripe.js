@@ -4,15 +4,14 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// ── Startup guard: fail fast if secret key is missing ──
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error(
-    'STRIPE_SECRET_KEY is not set in environment variables. ' +
-    'Add it to server/.env before starting the server.'
-  );
-}
+const stripeKey = process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder';
+const stripe = new Stripe(stripeKey);
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+export const isMockMode = stripeKey.startsWith('sk_test_placeholder');
+
+if (isMockMode) {
+  console.log("\n⚠️  [STRIPE SERVICE] Running in MOCK MODE. No real Stripe API calls will be made.\n");
+}
 
 /**
  * Upsert a Stripe customer.
@@ -25,6 +24,31 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
  * @returns {Promise<Stripe.Customer>}
  */
 export async function upsertStripeCustomer({ email, name, paymentMethodId, existingCustomerId }) {
+  if (isMockMode) {
+    console.log(`├── 🔌 [STRIPE] (Mock) upsertStripeCustomer for: ${email}`);
+    if (existingCustomerId) {
+      console.log(`├── 🔌 [STRIPE] (Mock) Attaching PaymentMethod ${paymentMethodId} to customer ${existingCustomerId}`);
+      return {
+        id: existingCustomerId,
+        email,
+        name,
+        invoice_settings: {
+          default_payment_method: paymentMethodId,
+        },
+      };
+    }
+    const mockCustomerId = `cus_mock_${Math.random().toString(36).substring(7)}`;
+    console.log(`├── 🔌 [STRIPE] (Mock) Created customer: ${mockCustomerId}`);
+    return {
+      id: mockCustomerId,
+      email,
+      name,
+      invoice_settings: {
+        default_payment_method: paymentMethodId,
+      },
+    };
+  }
+
   if (existingCustomerId) {
     // ── Returning customer: attach PM, then set as default ──
     try {
@@ -69,6 +93,26 @@ export async function upsertStripeCustomer({ email, name, paymentMethodId, exist
  * @returns {Promise<Stripe.Subscription>}
  */
 export async function createStripeSubscription({ customerId, amountCents }) {
+  if (isMockMode) {
+    const mockSubId = `sub_mock_${Math.random().toString(36).substring(7)}`;
+    const mockInvId = `in_mock_${Math.random().toString(36).substring(7)}`;
+    const mockPiId = `pi_mock_${Math.random().toString(36).substring(7)}`;
+    console.log(`├── 🔌 [STRIPE] (Mock) Creating subscription (amount: ${amountCents} cents)`);
+    console.log(`├── 🔌 [STRIPE] (Mock) Generated: ${mockSubId}, invoice: ${mockInvId}, intent: ${mockPiId}`);
+
+    return {
+      id: mockSubId,
+      status: 'active',
+      latest_invoice: {
+        id: mockInvId,
+        payment_intent: {
+          id: mockPiId,
+          client_secret: `pi_mock_secret_${Math.random().toString(36).substring(7)}`,
+        },
+      },
+    };
+  }
+
   // Deterministic idempotency key: prevents duplicate subs on retries
   const idempotencyKey = crypto
     .createHash('sha256')
@@ -114,6 +158,11 @@ export async function createStripeSubscription({ customerId, amountCents }) {
  * @returns {Promise<Stripe.Subscription[]>}
  */
 export async function listActiveSubscriptions(customerId) {
+  if (isMockMode) {
+    console.log(`├── 🔌 [STRIPE] (Mock) Checking active subscriptions for: ${customerId}`);
+    return [];
+  }
+
   const { data } = await stripe.subscriptions.list({
     customer: customerId,
     status: 'active',

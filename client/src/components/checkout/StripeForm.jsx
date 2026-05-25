@@ -61,54 +61,91 @@ export default function StripeForm({ amount, onClose }) {
     return Object.keys(errs).length === 0;
   };
 
+  const isMockStripe = !import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY.startsWith('pk_test_placeholder');
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
-    if (!stripe || !elements) return;
 
     setLoading(true);
     setSubmitError('');
 
-    try {
-      // ── Step 1: Create a secure tokenised PaymentMethod via Stripe Elements ──
-      const cardElement = elements.getElement(CardElement);
-      const { paymentMethod, error: pmError } = await stripe.createPaymentMethod({
-        type: 'card',
-        card: cardElement,
-        billing_details: {
-          name: `${formData.firstName} ${formData.lastName}`,
-          email: formData.email,
-        },
-      });
+    const styleTrace = (text, isHeader = false) => {
+      return isHeader
+        ? [
+            `%c${text}`,
+            "color: #ffffff; background: #7c5cfc; font-weight: bold; padding: 4px 8px; border-radius: 4px; font-size: 12px;"
+          ]
+        : [
+            `%c${text}`,
+            "color: #7c5cfc; font-weight: 500; font-size: 11px; padding-left: 10px;"
+          ];
+    };
 
-      if (pmError) {
-        throw new Error(pmError.message);
+    console.log(...styleTrace("┌── 💳 [FRONTEND] Checkout Form Submitted", true));
+    console.log(...styleTrace(`├── Form Data: ${formData.firstName} ${formData.lastName} (${formData.email})`));
+    console.log(...styleTrace(`├── Amount: $${amount}/month`));
+
+    try {
+      let paymentMethodId = 'pm_mock_123';
+
+      if (!isMockStripe && stripe && elements) {
+        console.log(...styleTrace("├── 📦 Requesting Stripe PaymentMethod tokenization..."));
+        const cardElement = elements.getElement(CardElement);
+        const { paymentMethod, error: pmError } = await stripe.createPaymentMethod({
+          type: 'card',
+          card: cardElement,
+          billing_details: {
+            name: `${formData.firstName} ${formData.lastName}`,
+            email: formData.email,
+          },
+        });
+
+        if (pmError) {
+          console.log(...styleTrace(`├── ❌ Stripe tokenization failed: ${pmError.message}`));
+          throw new Error(pmError.message);
+        }
+
+        paymentMethodId = paymentMethod.id;
+        console.log(...styleTrace(`├── 📦 Stripe PaymentMethod created: ${paymentMethodId}`));
+      } else {
+        console.log(...styleTrace("├── 🛡️ (Mock) Bypassed real Stripe tokenization. Using: pm_mock_123"));
       }
 
-      // ── Step 2: Send tokenised PM to backend — ALL Stripe processing is server-side ──
+      // ── Step 2: Send tokenised PM to backend ──
+      console.log(...styleTrace("├── 🌐 Dispatching POST /api/v1/donations/subscribe..."));
       const result = await createSubscription({
         email: formData.email,
         firstName: formData.firstName,
         lastName: formData.lastName,
         country: formData.country,
-        paymentMethodId: paymentMethod.id,
-        amount: amount, // dollars — backend converts to cents
+        paymentMethodId: paymentMethodId,
+        amount: amount,
       });
+      console.log(...styleTrace(`├── 🌐 Backend responded successfully: status = ${result.status}`));
 
       // ── Step 3: Handle SCA / 3D Secure if required ──
       if (result.status === 'requires_action' && result.clientSecret) {
-        const { error: confirmError } = await stripe.confirmCardPayment(
-          result.clientSecret
-        );
+        if (!isMockStripe && stripe) {
+          console.log(...styleTrace("├── 🔒 Confirming Card Payment (3D Secure Required)..."));
+          const { error: confirmError } = await stripe.confirmCardPayment(
+            result.clientSecret
+          );
 
-        if (confirmError) {
-          throw new Error(confirmError.message);
+          if (confirmError) {
+            console.log(...styleTrace(`├── ❌ 3D Secure confirmation failed: ${confirmError.message}`));
+            throw new Error(confirmError.message);
+          }
+          console.log(...styleTrace("├── 🔒 3D Secure verification succeeded!"));
+        } else {
+          console.log(...styleTrace("├── 🛡️ (Mock) Bypassed 3D Secure confirmation. Succeeding automatically."));
         }
       }
 
-      // ── Success ──
+      console.log(...styleTrace("└── 🎉 Checkout flow completed successfully!", true));
       setSuccess(true);
     } catch (err) {
+      console.log(`%c└── ❌ Error: ${err.message}`, "color: #ea4335; font-weight: bold;");
       const errorCode = err.errorCode || err.error || '';
       const errorMessage = getFriendlyError(errorCode, err.message);
       setSubmitError(errorMessage);
@@ -199,23 +236,83 @@ export default function StripeForm({ amount, onClose }) {
       {/* Card Details */}
       <div>
         <p className="checkout-form__section-label">Payment Details</p>
-        <div className={`checkout-form__card-element ${cardFocused ? 'checkout-form__card-element--focused' : ''}`}>
-          <CardElement
-            options={{
-              style: {
-                base: {
+        {isMockStripe ? (
+          <div className="checkout-form__mock-card" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                placeholder="Card Number"
+                defaultValue="4242 4242 4242 4242"
+                disabled
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  border: '1px dashed var(--color-border)',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                  color: 'var(--color-text-primary)',
                   fontSize: '16px',
-                  color: '#202124',
                   fontFamily: 'Inter, sans-serif',
-                  '::placeholder': { color: 'rgba(32, 33, 36, 0.4)' },
+                }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                placeholder="MM/YY"
+                defaultValue="12/30"
+                disabled
+                style={{
+                  width: '50%',
+                  padding: '12px 16px',
+                  border: '1px dashed var(--color-border)',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                  color: 'var(--color-text-primary)',
+                  fontSize: '16px',
+                  fontFamily: 'Inter, sans-serif',
+                }}
+              />
+              <input
+                type="text"
+                placeholder="CVC"
+                defaultValue="123"
+                disabled
+                style={{
+                  width: '50%',
+                  padding: '12px 16px',
+                  border: '1px dashed var(--color-border)',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                  color: 'var(--color-text-primary)',
+                  fontSize: '16px',
+                  fontFamily: 'Inter, sans-serif',
+                }}
+              />
+            </div>
+            <span style={{ fontSize: '12px', color: 'var(--color-accent-secondary)', fontStyle: 'italic', marginTop: '4px' }}>
+              ✨ Stripe is in MOCK mode. Prefilled test card credentials will be processed.
+            </span>
+          </div>
+        ) : (
+          <div className={`checkout-form__card-element ${cardFocused ? 'checkout-form__card-element--focused' : ''}`}>
+            <CardElement
+              options={{
+                style: {
+                  base: {
+                    fontSize: '16px',
+                    color: '#202124',
+                    fontFamily: 'Inter, sans-serif',
+                    '::placeholder': { color: 'rgba(32, 33, 36, 0.4)' },
+                  },
+                  invalid: { color: '#ea4335' },
                 },
-                invalid: { color: '#ea4335' },
-              },
-            }}
-            onFocus={() => setCardFocused(true)}
-            onBlur={() => setCardFocused(false)}
-          />
-        </div>
+              }}
+              onFocus={() => setCardFocused(true)}
+              onBlur={() => setCardFocused(false)}
+            />
+          </div>
+        )}
       </div>
 
       {submitError && (
@@ -235,7 +332,7 @@ export default function StripeForm({ amount, onClose }) {
         size="lg"
         fullWidth
         loading={loading}
-        disabled={!stripe || !elements || loading}
+        disabled={(!isMockStripe && (!stripe || !elements)) || loading}
       >
         Donate ${amount}/month
       </Button>
