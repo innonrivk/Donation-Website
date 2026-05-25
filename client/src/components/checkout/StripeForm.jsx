@@ -3,13 +3,29 @@ import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
 import { createSubscription } from '../../services/api';
+import COUNTRIES from '../../utils/countries';
 
-const COUNTRIES = [
-  'United States', 'Canada', 'United Kingdom', 'Australia', 'Germany',
-  'France', 'Netherlands', 'Sweden', 'Norway', 'Denmark', 'Japan',
-  'South Korea', 'Thailand', 'Singapore', 'India', 'Brazil', 'Mexico',
-  'South Africa', 'New Zealand', 'Ireland', 'Other',
-];
+/**
+ * Map Stripe / backend error codes to user-friendly messages.
+ */
+const ERROR_MESSAGES = {
+  card_declined:       'Your card was declined. Please try a different card.',
+  insufficient_funds:  'Insufficient funds. Please try a different card.',
+  expired_card:        'Your card has expired. Please use a different card.',
+  incorrect_cvc:       'The CVC code is incorrect. Please check and try again.',
+  processing_error:    'A processing error occurred. Please try again.',
+  incorrect_number:    'The card number is incorrect.',
+  duplicate_subscription: null, // Use backend message directly
+  rate_limited:        'Too many attempts. Please wait a few minutes and try again.',
+  validation_error:    null, // Use backend message directly
+};
+
+function getFriendlyError(errorCode, fallbackMessage) {
+  if (errorCode && errorCode in ERROR_MESSAGES) {
+    return ERROR_MESSAGES[errorCode] || fallbackMessage;
+  }
+  return fallbackMessage || 'Something went wrong. Please try again.';
+}
 
 export default function StripeForm({ amount, onClose }) {
   const stripe = useStripe();
@@ -54,23 +70,48 @@ export default function StripeForm({ amount, onClose }) {
     setSubmitError('');
 
     try {
-      // MOCK: Simulate network delay for realistic flow
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // We are intentionally bypassing stripe.createPaymentMethod for testing.
-      // Send directly to backend which will simulate the subscription.
-      await createSubscription({
+      // ── Step 1: Create a secure tokenised PaymentMethod via Stripe Elements ──
+      const cardElement = elements.getElement(CardElement);
+      const { paymentMethod, error: pmError } = await stripe.createPaymentMethod({
+        type: 'card',
+        card: cardElement,
+        billing_details: {
+          name: `${formData.firstName} ${formData.lastName}`,
+          email: formData.email,
+        },
+      });
+
+      if (pmError) {
+        throw new Error(pmError.message);
+      }
+
+      // ── Step 2: Send tokenised PM to backend — ALL Stripe processing is server-side ──
+      const result = await createSubscription({
         email: formData.email,
         firstName: formData.firstName,
         lastName: formData.lastName,
         country: formData.country,
-        paymentMethodId: 'pm_mock_123',
-        amount: amount,
+        paymentMethodId: paymentMethod.id,
+        amount: amount, // dollars — backend converts to cents
       });
 
+      // ── Step 3: Handle SCA / 3D Secure if required ──
+      if (result.status === 'requires_action' && result.clientSecret) {
+        const { error: confirmError } = await stripe.confirmCardPayment(
+          result.clientSecret
+        );
+
+        if (confirmError) {
+          throw new Error(confirmError.message);
+        }
+      }
+
+      // ── Success ──
       setSuccess(true);
     } catch (err) {
-      setSubmitError(err.message || 'Something went wrong. Please try again.');
+      const errorCode = err.errorCode || err.error || '';
+      const errorMessage = getFriendlyError(errorCode, err.message);
+      setSubmitError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -178,7 +219,7 @@ export default function StripeForm({ amount, onClose }) {
       </div>
 
       {submitError && (
-        <div className="checkout-form__error">
+        <div className="checkout-form__error" role="alert" aria-live="polite">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10" />
             <line x1="15" y1="9" x2="9" y2="15" />
@@ -194,7 +235,7 @@ export default function StripeForm({ amount, onClose }) {
         size="lg"
         fullWidth
         loading={loading}
-        disabled={!stripe}
+        disabled={!stripe || !elements || loading}
       >
         Donate ${amount}/month
       </Button>

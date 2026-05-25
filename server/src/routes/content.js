@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 // Returns all public-facing content: website text, active donation boxes, active projects, tiers
 router.get('/', async (req, res, next) => {
   try {
-    const [websiteContent, donationBoxes, projects, tiers] = await Promise.all([
+    const [websiteContent, donationBoxes, projects, tiers, milestones] = await Promise.all([
       prisma.websiteContent.findFirst({ orderBy: { id: 'desc' } }),
       prisma.donationBox.findMany({
         where: { isActive: true },
@@ -20,6 +20,9 @@ router.get('/', async (req, res, next) => {
       prisma.tier.findMany({
         orderBy: { tierLevel: 'asc' },
       }),
+      prisma.donationMilestone.findMany({
+        orderBy: { displayOrder: 'asc' },
+      }),
     ]);
 
     res.json({
@@ -27,6 +30,7 @@ router.get('/', async (req, res, next) => {
       donationBoxes,
       projects,
       tiers,
+      milestones,
     });
   } catch (error) {
     next(error);
