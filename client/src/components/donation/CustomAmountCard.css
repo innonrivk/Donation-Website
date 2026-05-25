@@ -1,0 +1,188 @@
+.custom-card {
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-accent);
+}
+
+.custom-card__glow {
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    rgba(124, 92, 252, 0.08) 25%,
+    transparent 50%,
+    rgba(45, 212, 191, 0.08) 75%,
+    transparent 100%
+  );
+  animation: spin 10s linear infinite;
+  pointer-events: none;
+}
+
+.custom-card__content {
+  position: relative;
+  padding: var(--space-xl);
+  background: var(--color-bg-secondary);
+  margin: 1px;
+  border-radius: calc(var(--radius-lg) - 1px);
+}
+
+.custom-card__icon {
+  margin-bottom: var(--space-md);
+}
+
+.custom-card__title {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  margin-bottom: var(--space-xs);
+  background: var(--color-accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.custom-card__desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-lg);
+}
+
+.custom-card__presets {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.custom-card__preset {
+  padding: var(--space-sm);
+  background: var(--color-bg-glass);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-family: var(--font-family);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.custom-card__preset:hover {
+  border-color: var(--color-border-hover);
+  color: var(--color-text-primary);
+  background: var(--color-bg-glass-strong);
+}
+
+.custom-card__preset--active {
+  border-color: var(--color-accent-primary);
+  color: var(--color-accent-primary);
+  background: rgba(124, 92, 252, 0.1);
+}
+
+.custom-card__input-wrap {
+  display: flex;
+  align-items: center;
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: all var(--transition-fast);
+  margin-bottom: var(--space-sm);
+}
+
+.custom-card__input-wrap:focus-within {
+  border-color: var(--color-accent-primary);
+  box-shadow: 0 0 0 3px rgba(124, 92, 252, 0.15);
+}
+
+.custom-card__input-prefix {
+  padding: 0 0 0 var(--space-md);
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: var(--font-size-lg);
+}
+
+.custom-card__input {
+  flex: 1;
+  padding: 0.75rem var(--space-sm);
+  background: transparent;
+  border: none;
+  color: var(--color-text-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  outline: none;
+  min-width: 0;
+}
+
+.custom-card__input::placeholder {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+/* Hide number input spinners */
+.custom-card__input::-webkit-outer-spin-button,
+.custom-card__input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.custom-card__input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+.custom-card__input-suffix {
+  padding: 0 var(--space-md) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.custom-card__error {
+  font-size: var(--font-size-xs);
+  color: var(--color-error);
+  font-weight: 500;
+  margin-bottom: var(--space-sm);
+}
+
+.custom-card__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: 0.875rem;
+  background: var(--color-accent-gradient);
+  border: none;
+  border-radius: var(--radius-md);
+  color: white;
+  font-family: var(--font-family);
+  font-weight: 600;
+  font-size: var(--font-size-base);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-glow-accent);
+  margin-top: var(--space-sm);
+}
+
+.custom-card__btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 40px rgba(124, 92, 252, 0.4);
+}
+
+.custom-card__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.custom-card__btn svg {
+  transition: transform var(--transition-fast);
+}
+
+.custom-card__btn:hover:not(:disabled) svg {
+  transform: translateX(3px);
+}

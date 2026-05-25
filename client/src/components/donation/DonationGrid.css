@@ -1,0 +1,65 @@
+.donation-section {
+  position: relative;
+  background: var(--color-bg-primary);
+}
+
+.donation-section__header {
+  text-align: center;
+  max-width: 600px;
+  margin: 0 auto var(--space-3xl);
+}
+
+.donation-section__label {
+  display: inline-block;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-accent-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: var(--space-sm);
+}
+
+.donation-section__title {
+  font-size: var(--font-size-3xl);
+  font-weight: 800;
+  margin-bottom: var(--space-md);
+  line-height: 1.2;
+}
+
+.donation-section__desc {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+}
+
+.donation-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+.donation-grid__custom {
+  grid-row: span 2;
+}
+
+@media (max-width: 1024px) {
+  .donation-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .donation-grid__custom {
+    grid-column: span 2;
+    grid-row: span 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .donation-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .donation-grid__custom {
+    grid-column: span 1;
+  }
+}
