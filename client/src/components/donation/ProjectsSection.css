@@ -47,6 +47,7 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-lg);
+  align-items: start; /* Allow cards to grow independently without stretching siblings */
 }
 
 .project-card {
@@ -55,6 +56,8 @@
   border-radius: var(--radius-lg);
   padding: var(--space-xl);
   transition: all var(--transition-base);
+  display: flex;
+  flex-direction: column;
 }
 
 .project-card:hover {
@@ -82,76 +85,90 @@
   margin-bottom: var(--space-sm);
 }
 
+/* Container for details to animate max-height smoothly */
+.project-card__details-wrap {
+  position: relative;
+  max-height: 4.8em; /* Exactly 3 lines (1.6 line-height * 3) */
+  overflow: hidden;
+  margin-bottom: var(--space-md);
+  transition: max-height 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
 .project-card__details {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   line-height: 1.6;
-  margin-bottom: var(--space-lg);
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  margin-bottom: 0;
 }
 
-.project-card__funding {
-  position: relative;
-}
-
-.project-card__progress-bar {
-  width: 100%;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: var(--radius-full);
-  overflow: hidden;
-  margin-bottom: var(--space-sm);
-}
-
-.project-card__progress-fill {
-  height: 100%;
-  background: var(--color-accent-gradient);
-  border-radius: var(--radius-full);
-  transition: width 1s ease-out;
-  position: relative;
-}
-
-.project-card__progress-fill::after {
-  content: '';
+/* Glassmorphic fade overlay for clipped text */
+.project-card__fade-mask {
   position: absolute;
+  bottom: 0;
+  left: 0;
   right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 10px;
-  height: 10px;
-  background: var(--color-accent-secondary);
-  border-radius: 50%;
-  box-shadow: 0 0 10px var(--color-accent-secondary);
+  height: 2em;
+  background: linear-gradient(to bottom, transparent, var(--color-bg-card));
+  pointer-events: none;
+  transition: opacity 0.3s ease, background 0.3s ease;
 }
 
-.project-card__funding-info {
-  display: flex;
-  justify-content: space-between;
-  font-size: var(--font-size-xs);
+.project-card:hover .project-card__fade-mask {
+  background: linear-gradient(to bottom, transparent, var(--color-bg-card-hover));
 }
 
-.project-card__funded {
+/* Expanded state (React State / Tapped) */
+.project-card--expanded .project-card__details-wrap {
+  max-height: 280px; /* Tight max-height limit to avoid transition out delays */
+}
+
+.project-card--expanded .project-card__fade-mask {
+  opacity: 0;
+}
+
+.project-card--expanded .project-card__chevron {
+  transform: rotate(180deg);
+}
+
+/* Premium Desktop Hover States - strictly desktop with pointer to avoid mobile double-tap bugs */
+@media (hover: hover) and (pointer: fine) {
+  .project-card:hover .project-card__details-wrap {
+    max-height: 280px;
+  }
+
+  .project-card:hover .project-card__fade-mask {
+    opacity: 0;
+  }
+
+  .project-card:hover .project-card__chevron {
+    transform: rotate(180deg);
+  }
+}
+
+/* Expand Collapse Button */
+.project-card__expand-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  background: transparent;
+  border: none;
   color: var(--color-accent-secondary);
-  font-weight: 600;
-}
-
-.project-card__goal {
-  color: var(--color-text-muted);
-}
-
-.project-card__percent {
-  position: absolute;
-  top: -28px;
-  right: 0;
+  font-family: var(--font-family);
   font-size: var(--font-size-sm);
-  font-weight: 700;
-  background: var(--color-accent-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-weight: 600;
+  cursor: pointer;
+  padding: var(--space-xs) 0;
+  transition: color 0.2s ease;
+  align-self: flex-start;
+  margin-top: auto; /* Push button to the bottom of the card content */
+}
+
+.project-card__expand-btn:hover {
+  color: var(--color-accent-primary);
+}
+
+.project-card__chevron {
+  transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 @media (max-width: 1024px) {

@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 // Returns all public-facing content: website text, active donation boxes, active projects, tiers
 router.get('/', async (req, res, next) => {
   try {
-    const [websiteContent, donationBoxes, projects, tiers] = await Promise.all([
+    const [websiteContent, donationBoxes, projects, tiers, milestones] = await Promise.all([
       prisma.websiteContent.findFirst({ orderBy: { id: 'desc' } }),
       prisma.donationBox.findMany({
         where: { isActive: true },
@@ -20,13 +20,46 @@ router.get('/', async (req, res, next) => {
       prisma.tier.findMany({
         orderBy: { tierLevel: 'asc' },
       }),
+      prisma.donationMilestone.findMany({
+        orderBy: { displayOrder: 'asc' },
+      }),
     ]);
+
+    const mappedDonationBoxes = donationBoxes.map(box => {
+      const plainBox = { ...box };
+      if (!plainBox.isCustomAmount) {
+        const matchingTier = tiers.find(
+          t => t.name.toLowerCase() === plainBox.title.toLowerCase()
+        );
+        if (matchingTier) {
+          let perks = [];
+          try {
+            perks = typeof matchingTier.perks === 'string'
+              ? JSON.parse(matchingTier.perks)
+              : (Array.isArray(matchingTier.perks) ? matchingTier.perks : []);
+          } catch (e) {
+            perks = [];
+          }
+          plainBox.perks = perks;
+        } else {
+          plainBox.perks = plainBox.tierDetails
+            ? plainBox.tierDetails.split('|').map(p => p.trim())
+            : [];
+        }
+      } else {
+        plainBox.perks = plainBox.tierDetails
+          ? plainBox.tierDetails.split('|').map(p => p.trim())
+          : [];
+      }
+      return plainBox;
+    });
 
     res.json({
       websiteContent,
-      donationBoxes,
+      donationBoxes: mappedDonationBoxes,
       projects,
       tiers,
+      milestones,
     });
   } catch (error) {
     next(error);

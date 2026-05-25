@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import rateLimit from 'express-rate-limit';
 import contentRoutes from './routes/content.js';
 import donationRoutes from './routes/donations.js';
 import webhookRoutes from './routes/webhooks.js';
@@ -22,7 +23,19 @@ app.use(express.json());
 
 // API Routes
 app.use('/api/v1/content', contentRoutes);
-app.use('/api/v1/donations', donationRoutes);
+
+// Rate limit donation endpoints: 5 requests per IP per 15 minutes
+const donationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: 'rate_limited',
+    message: 'Too many donation attempts. Please try again in a few minutes.',
+  },
+});
+app.use('/api/v1/donations', donationLimiter, donationRoutes);
 
 // Health check
 app.get('/api/v1/health', (req, res) => {
