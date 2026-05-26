@@ -8,6 +8,7 @@ async function request(endpoint, options = {}) {
   const url = `${API_BASE}${endpoint}`;
 
   const config = {
+    credentials: 'include', // Send HttpOnly cookies
     headers: {
       'Content-Type': 'application/json',
       ...options.headers,
@@ -22,26 +23,114 @@ async function request(endpoint, options = {}) {
     const err = new Error(errorBody.message || errorBody.error || `HTTP ${response.status}`);
     err.errorCode = errorBody.error || null;
     err.fields = errorBody.fields || null;
+    err.status = response.status;
+    err.attemptsRemaining = errorBody.attemptsRemaining ?? null;
     throw err;
   }
 
   return response.json();
 }
 
-/**
- * Fetch all public content (website content, donation boxes, projects, tiers, milestones)
- */
+// ── Content ──
 export function getContent() {
   return request('/content');
 }
 
-/**
- * Create a donation subscription.
- * Sends amount in DOLLARS — backend converts to cents.
- */
+// ── Donations ──
 export function createSubscription(data) {
   return request('/donations/subscribe', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
+
+// ── Auth ──
+export function signup(data) {
+  return request('/auth/signup', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function login(data) {
+  return request('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function verifyOtp(data) {
+  return request('/auth/verify-otp', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function googleLogin(data) {
+  return request('/auth/google', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function logout() {
+  return request('/auth/logout', { method: 'POST' });
+}
+
+export function getMe() {
+  return request('/auth/me');
+}
+
+// ── Settings ──
+export function requestPasswordOtp() {
+  return request('/auth/settings/password-otp', { method: 'POST' });
+}
+
+export function changePassword(data) {
+  return request('/auth/settings/change-password', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function requestEmailOtp(data) {
+  return request('/auth/settings/email-otp', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function changeEmail(data) {
+  return request('/auth/settings/change-email', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function changeName(data) {
+  return request('/auth/settings/change-name', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+// ── Subscriptions ──
+export function updateSubscription(data) {
+  return request('/subscriptions/update', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function cancelSubscription() {
+  return request('/subscriptions/cancel', { method: 'POST' });
+}
+
+// ── Milestones ──
+export function claimMilestone(data) {
+  return request('/milestones/claim', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+

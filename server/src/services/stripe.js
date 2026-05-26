@@ -7,7 +7,7 @@ dotenv.config();
 const stripeKey = process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder';
 const stripe = new Stripe(stripeKey);
 
-export const isMockMode = stripeKey.startsWith('sk_test_placeholder');
+export const isMockMode = stripeKey.startsWith('sk_test_placeholder') || stripeKey.includes('replace_with_your_key');
 
 if (isMockMode) {
   console.log("\n⚠️  [STRIPE SERVICE] Running in MOCK MODE. No real Stripe API calls will be made.\n");

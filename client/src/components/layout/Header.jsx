@@ -1,7 +1,16 @@
 import './Header.css';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Header() {
+  let isAuthenticated = false;
+  try {
+    const auth = useAuth();
+    isAuthenticated = auth.isAuthenticated;
+  } catch {
+    // AuthProvider not available — default to not authenticated
+  }
+
   return (
     <header className="header">
       <div className="header__container container">
@@ -14,8 +23,14 @@ export default function Header() {
         </Link>
         <nav className="header__nav">
           <a href="#donate" className="header__nav-link">Donate</a>
+          {isAuthenticated ? (
+            <Link to="/dashboard" className="header__nav-link header__nav-link--cta">Dashboard</Link>
+          ) : (
+            <Link to="/login" className="header__nav-link header__nav-link--cta">Sign In</Link>
+          )}
         </nav>
       </div>
     </header>
   );
 }
+

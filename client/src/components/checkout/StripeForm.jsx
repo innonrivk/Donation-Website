@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
+import { useAuth } from '../../context/AuthContext';
 import { createSubscription } from '../../services/api';
 import COUNTRIES from '../../utils/countries';
 
@@ -31,17 +32,66 @@ export default function StripeForm({ amount, onClose }) {
   const stripe = useStripe();
   const elements = useElements();
 
+  let user = null;
+  try {
+    const auth = useAuth();
+    user = auth?.user;
+  } catch (e) {
+    // Auth context not available
+  }
+
   const [formData, setFormData] = useState({
-    email: '',
-    firstName: '',
-    lastName: '',
-    country: '',
+    email: user?.email || '',
+    firstName: user?.firstName || '',
+    lastName: user?.lastName || '',
+    country: user?.country || '',
   });
+
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        email: user.email || prev.email,
+        firstName: user.firstName || prev.firstName,
+        lastName: user.lastName || prev.lastName,
+        country: user.country || prev.country,
+      }));
+    }
+  }, [user]);
+
   const [errors, setErrors] = useState({});
   const [cardFocused, setCardFocused] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [success, setSuccess] = useState(false);
+
+  // Mock card states and formatting handlers
+  const [mockCard, setMockCard] = useState('0000 0000 0000 0000');
+  const [mockExpiry, setMockExpiry] = useState('11/30');
+  const [mockCvc, setMockCvc] = useState('000');
+
+  const isCardValid = mockCard.replace(/\s/g, '').length === 16;
+  const isExpiryValid = /^\d{2}\/\d{2}$/.test(mockExpiry);
+  const isCvcValid = mockCvc.length === 3;
+
+  const handleMockCardChange = (e) => {
+    let val = e.target.value.replace(/\D/g, '').slice(0, 16);
+    let formatted = val.match(/.{1,4}/g)?.join(' ') || val;
+    setMockCard(formatted);
+  };
+
+  const handleMockExpiryChange = (e) => {
+    let val = e.target.value.replace(/\D/g, '').slice(0, 4);
+    if (val.length >= 3) {
+      val = val.slice(0, 2) + '/' + val.slice(2);
+    }
+    setMockExpiry(val);
+  };
+
+  const handleMockCvcChange = (e) => {
+    let val = e.target.value.replace(/\D/g, '').slice(0, 3);
+    setMockCvc(val);
+  };
 
   const updateField = (field) => (e) => {
     setFormData((prev) => ({ ...prev, [field]: e.target.value }));
@@ -57,11 +107,27 @@ export default function StripeForm({ amount, onClose }) {
     if (!formData.firstName.trim()) errs.firstName = 'First name is required';
     if (!formData.lastName.trim()) errs.lastName = 'Last name is required';
     if (!formData.country) errs.country = 'Please select a country';
+
+    if (isMockStripe) {
+      const cleanCard = mockCard.replace(/\s/g, '');
+      if (cleanCard.length !== 16) {
+        errs.card = 'Card number must be 16 digits';
+      }
+      if (!/^\d{2}\/\d{2}$/.test(mockExpiry)) {
+        errs.expiry = 'Expiration date must be MM/YY';
+      }
+      if (mockCvc.length !== 3) {
+        errs.cvc = 'CVC must be 3 digits';
+      }
+    }
+
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
-  const isMockStripe = !import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY.startsWith('pk_test_placeholder');
+  const isMockStripe = !import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ||
+    import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY.startsWith('pk_test_placeholder') ||
+    import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY.includes('replace_with_your_key');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -188,6 +254,7 @@ export default function StripeForm({ amount, onClose }) {
             placeholder="John"
             error={errors.firstName}
             required
+            disabled={!!user}
           />
           <Input
             label="Last Name"
@@ -197,6 +264,7 @@ export default function StripeForm({ amount, onClose }) {
             placeholder="Doe"
             error={errors.lastName}
             required
+            disabled={!!user}
           />
         </div>
       </div>
@@ -210,6 +278,7 @@ export default function StripeForm({ amount, onClose }) {
         placeholder="john@example.com"
         error={errors.email}
         required
+        disabled={!!user}
       />
 
 
@@ -242,32 +311,42 @@ export default function StripeForm({ amount, onClose }) {
               <input
                 type="text"
                 placeholder="Card Number"
-                defaultValue="4242 4242 4242 4242"
-                disabled
+                value={mockCard}
+                onChange={handleMockCardChange}
                 style={{
                   width: '100%',
                   padding: '12px 16px',
-                  border: '1px dashed var(--color-border)',
+                  border: isCardValid
+                    ? '1px solid #34a853'
+                    : (errors.card ? '1px solid var(--color-error)' : '1px solid var(--color-border)'),
+                  boxShadow: isCardValid ? '0 0 0 3px rgba(52, 168, 83, 0.15)' : 'none',
+                  transition: 'all 0.2s ease',
                   borderRadius: '8px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                  backgroundColor: '#ffffff',
                   color: 'var(--color-text-primary)',
                   fontSize: '16px',
                   fontFamily: 'Inter, sans-serif',
                 }}
               />
             </div>
+            {errors.card && <span style={{ fontSize: '12px', color: 'var(--color-error)', display: 'block', margin: '-4px 0 4px 4px' }}>{errors.card}</span>}
+            
             <div style={{ display: 'flex', gap: '8px' }}>
               <input
                 type="text"
                 placeholder="MM/YY"
-                defaultValue="12/30"
-                disabled
+                value={mockExpiry}
+                onChange={handleMockExpiryChange}
                 style={{
                   width: '50%',
                   padding: '12px 16px',
-                  border: '1px dashed var(--color-border)',
+                  border: isExpiryValid
+                    ? '1px solid #34a853'
+                    : (errors.expiry ? '1px solid var(--color-error)' : '1px solid var(--color-border)'),
+                  boxShadow: isExpiryValid ? '0 0 0 3px rgba(52, 168, 83, 0.15)' : 'none',
+                  transition: 'all 0.2s ease',
                   borderRadius: '8px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                  backgroundColor: '#ffffff',
                   color: 'var(--color-text-primary)',
                   fontSize: '16px',
                   fontFamily: 'Inter, sans-serif',
@@ -276,22 +355,31 @@ export default function StripeForm({ amount, onClose }) {
               <input
                 type="text"
                 placeholder="CVC"
-                defaultValue="123"
-                disabled
+                value={mockCvc}
+                onChange={handleMockCvcChange}
                 style={{
                   width: '50%',
                   padding: '12px 16px',
-                  border: '1px dashed var(--color-border)',
+                  border: isCvcValid
+                    ? '1px solid #34a853'
+                    : (errors.cvc ? '1px solid var(--color-error)' : '1px solid var(--color-border)'),
+                  boxShadow: isCvcValid ? '0 0 0 3px rgba(52, 168, 83, 0.15)' : 'none',
+                  transition: 'all 0.2s ease',
                   borderRadius: '8px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                  backgroundColor: '#ffffff',
                   color: 'var(--color-text-primary)',
                   fontSize: '16px',
                   fontFamily: 'Inter, sans-serif',
                 }}
               />
             </div>
-            <span style={{ fontSize: '12px', color: 'var(--color-accent-secondary)', fontStyle: 'italic', marginTop: '4px' }}>
-              ✨ Stripe is in MOCK mode. Prefilled test card credentials will be processed.
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between' }}>
+              {errors.expiry && <span style={{ fontSize: '12px', color: 'var(--color-error)', width: '50%', paddingLeft: '4px' }}>{errors.expiry}</span>}
+              {errors.cvc && <span style={{ fontSize: '12px', color: 'var(--color-error)', width: '50%', paddingLeft: '4px' }}>{errors.cvc}</span>}
+            </div>
+
+            <span style={{ fontSize: '12px', color: 'var(--brand-blue)', fontStyle: 'italic', marginTop: '4px' }}>
+              ✨ Stripe is in MOCK mode. You can use your custom card `0000 0000 0000 0000` to test!
             </span>
           </div>
         ) : (
