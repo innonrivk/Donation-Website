@@ -67,6 +67,8 @@
   font-weight: 600;
   color: var(--color-text-primary);
   margin-bottom: var(--space-sm);
+  line-height: 1.2;
+  white-space: nowrap; /* Prevent header shifting from title wraps */
 }
 
 .donation-card__price {
@@ -110,12 +112,25 @@
   margin-bottom: var(--space-md);
 }
 
+.donation-card:focus-visible {
+  outline: 2px solid var(--color-accent-primary);
+  outline-offset: 4px;
+}
+
+.donation-card__content-wrap {
+  position: relative;
+  max-height: 120px; /* Enforce 100% pixel-perfect matching heights when closed */
+  overflow: hidden;
+  margin-bottom: var(--space-xl);
+  transition: max-height 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
 .donation-card__perks {
   list-style: none;
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  margin-bottom: var(--space-xl);
+  margin-bottom: 0;
   flex: 1;
 }
 
@@ -130,6 +145,39 @@
 .donation-card__perk svg {
   flex-shrink: 0;
   color: var(--color-accent-secondary);
+}
+
+.donation-card__fade-mask {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2.5em;
+  background: linear-gradient(to bottom, transparent, var(--color-bg-card));
+  pointer-events: none;
+  transition: opacity 0.3s ease, background 0.3s ease;
+}
+
+.donation-card:hover .donation-card__fade-mask {
+  background: linear-gradient(to bottom, transparent, var(--color-bg-card-hover));
+}
+
+.donation-card--popular .donation-card__fade-mask {
+  background: linear-gradient(to bottom, transparent, #201a36); /* Custom backing matching popular card gradient */
+}
+
+.donation-card--popular:hover .donation-card__fade-mask {
+  background: linear-gradient(to bottom, transparent, var(--color-bg-card-hover));
+}
+
+.donation-card--expanded .donation-card__fade-mask {
+  opacity: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .donation-card:hover .donation-card__fade-mask {
+    opacity: 0;
+  }
 }
 
 .donation-card__btn {

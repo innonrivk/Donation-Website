@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import './ProjectsSection.css';
 
 export default function ProjectsSection({ projects }) {
@@ -12,13 +12,6 @@ export default function ProjectsSection({ projects }) {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
-  };
-
-  const handleKeyDown = (e, id) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      toggle(id);
-    }
   };
 
   return (
@@ -36,60 +29,91 @@ export default function ProjectsSection({ projects }) {
         </div>
 
         <div className="projects-grid">
-          {projects.map((project, index) => {
-            const isExpanded = expanded.has(project.id);
-
-            return (
-              <div
-                key={project.id}
-                className={`project-card${isExpanded ? ' project-card--expanded' : ''} animate-fade-in-up animate-delay-${index + 1}`}
-                aria-expanded={isExpanded}
-                onClick={() => toggle(project.id)}
-              >
-                <div className="project-card__icon-wrap">
-                  <ProjectIcon name={project.projectName} />
-                </div>
-                <h3 className="project-card__name">{project.projectName}</h3>
-                
-                <div className="project-card__details-wrap">
-                  <p className="project-card__details">{project.details}</p>
-                  <div className="project-card__fade-mask" />
-                </div>
-
-                {/* Dedicated expand/collapse button — accessible to keyboard and screen readers */}
-                <button
-                  className="project-card__expand-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggle(project.id);
-                  }}
-                  onKeyDown={(e) => handleKeyDown(e, project.id)}
-                  aria-label={isExpanded ? `Show less about ${project.projectName}` : `Read more about ${project.projectName}`}
-                  type="button"
-                >
-                  <span className="project-card__expand-text">
-                    {isExpanded ? 'Show less' : 'Read more'}
-                  </span>
-                  <svg
-                    className="project-card__chevron"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
-                </button>
-              </div>
-            );
-          })}
+          {projects.map((project, index) => (
+            <ProjectCard
+              key={project.id}
+              project={project}
+              index={index}
+              isExpanded={expanded.has(project.id)}
+              toggle={toggle}
+            />
+          ))}
         </div>
       </div>
     </section>
+  );
+}
+
+function ProjectCard({ project, index, isExpanded, toggle }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const detailsRef = useRef(null);
+
+  const isOpen = isExpanded || isHovered;
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggle(project.id);
+    }
+  };
+
+  // Determine dynamic maxHeight. Collapsed default is 4.8em.
+  const maxHeightStyle = isOpen
+    ? `${detailsRef.current?.scrollHeight || 300}px`
+    : '4.8em';
+
+  return (
+    <div
+      className={`project-card${isExpanded ? ' project-card--expanded' : ''} animate-fade-in-up animate-delay-${index + 1}`}
+      aria-expanded={isExpanded}
+      onClick={() => toggle(project.id)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{ cursor: 'pointer' }}
+    >
+      <div className="project-card__icon-wrap">
+        <ProjectIcon name={project.projectName} />
+      </div>
+      <h3 className="project-card__name">{project.projectName}</h3>
+      
+      <div
+        className="project-card__details-wrap"
+        style={{ maxHeight: maxHeightStyle }}
+        ref={detailsRef}
+      >
+        <p className="project-card__details">{project.details}</p>
+        <div className="project-card__fade-mask" />
+      </div>
+
+      {/* Dedicated expand/collapse button — accessible to keyboard and screen readers */}
+      <button
+        className="project-card__expand-btn"
+        onClick={(e) => {
+          e.stopPropagation();
+          toggle(project.id);
+        }}
+        onKeyDown={handleKeyDown}
+        aria-label={isExpanded ? `Show less about ${project.projectName}` : `Read more about ${project.projectName}`}
+        type="button"
+      >
+        <span className="project-card__expand-text">
+          {isExpanded ? 'Show less' : 'Read more'}
+        </span>
+        <svg
+          className="project-card__chevron"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+    </div>
   );
 }
 

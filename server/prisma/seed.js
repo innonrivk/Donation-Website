@@ -106,7 +106,7 @@ async function main() {
     data: {
       head: 'Empower Communities, Transform Lives',
       subtitle: 'Your monthly donation creates lasting impact through sustainable projects worldwide',
-      body: `OpenmindProjects (OMP) is dedicated to building stronger communities through sustainable development initiatives. Every donation directly funds projects in clean water access, education, environmental conservation, and community empowerment.\n\nBy becoming a monthly donor, you join a movement of changemakers who believe in consistent, long-term impact. Your contribution — no matter the size — helps us plan ahead, scale our projects, and deliver measurable results to the communities we serve.\n\n10% of all donations go into our community "Piggy Banks," where you and fellow donors vote on which projects receive additional funding boosts. Together, we decide where your impact grows.`,
+      body: `By becoming a monthly donor, you join a movement of changemakers who believe in consistent, long-term impact. Your contribution — no matter the size — helps us plan ahead, scale our projects, and deliver measurable results to the communities we serve.\n\n10% of all donations go into our community "Piggy Banks," where you and fellow donors vote on which projects receive additional funding boosts. Together, we decide where your impact grows.`,
     },
   });
   console.log('  ✅ Website content seeded');
@@ -171,7 +171,7 @@ async function main() {
       },
       {
         amountUsd: 6000,
-        label: 'Camp Patron',
+        label: 'Camp Patrons',
         description: '"Camp patron" certificate — a camp will be called by your name and your picture will be printed and put in the camp center.',
         isRepeatable: true,
         displayOrder: 4,

@@ -21,9 +21,14 @@ const SubscribeSchema = z.object({
 // Securely creates a Stripe subscription — all Stripe calls happen server-side.
 router.post('/subscribe', async (req, res, next) => {
   try {
+    console.log("\n\x1b[35m┌──────────────────────────────────────────────────────────┐\x1b[0m");
+    console.log("\x1b[35m│ 📥 [BACKEND] Received subscribe request on /subscribe   │\x1b[0m");
+    console.log("\x1b[35m└──────────────────────────────────────────────────────────┘\x1b[0m");
+
     // ── 1. Validate input ──
     const parseResult = SubscribeSchema.safeParse(req.body);
     if (!parseResult.success) {
+      console.log("├── ❌ [BACKEND] Validation failed!");
       const fieldErrors = parseResult.error.flatten().fieldErrors;
       return res.status(400).json({
         error: 'validation_error',
@@ -34,11 +39,13 @@ router.post('/subscribe', async (req, res, next) => {
 
     const { email, firstName, lastName, country, paymentMethodId, amount } = parseResult.data;
     const amountCents = amount * 100;
+    console.log(`├── 🔎 [BACKEND] Validation succeeded for: \x1b[36m${email}\x1b[0m (Amount: $${amount}/mo)`);
 
     // ── 2. Upsert Stripe customer (create or reuse) ──
     // Check if user already exists in our DB
     let user = await prisma.user.findUnique({ where: { email } });
     const existingCustomerId = user?.stripeCustomerId || undefined;
+    console.log(`├── 👤 [BACKEND] Checking existing customer (Stripe Customer ID: \x1b[33m${existingCustomerId || 'None'}\x1b[0m)`);
 
     const customer = await upsertStripeCustomer({
       email,
@@ -56,6 +63,7 @@ router.post('/subscribe', async (req, res, next) => {
     });
 
     if (duplicate) {
+      console.log(`├── ⚠️  [BACKEND] Duplicate subscription detected for customer: ${customer.id}`);
       return res.status(409).json({
         error: 'duplicate_subscription',
         message: `You already have an active $${amount}/month donation. To change your donation amount, please contact support.`,
@@ -63,12 +71,14 @@ router.post('/subscribe', async (req, res, next) => {
     }
 
     // ── 4. Create Stripe subscription ──
+    console.log("├── 💸 [BACKEND] Dispatching subscription request to Stripe helper...");
     const subscription = await createStripeSubscription({
       customerId: customer.id,
       amountCents,
     });
 
     // ── 5. Upsert User row + optionally insert Transaction (atomic) ──
+    console.log("├── 💾 [BACKEND] Executing database transaction to upsert User and record Transaction...");
     try {
       await prisma.$transaction(async (tx) => {
         // Create or update user
@@ -104,12 +114,9 @@ router.post('/subscribe', async (req, res, next) => {
           });
         }
       });
+      console.log("├── 💾 [BACKEND] Database write successful.");
     } catch (dbError) {
       // ── DEAD-LETTER LOG ──
-      // Stripe charge succeeded but DB write failed. Log structured data
-      // for manual reconciliation. The webhook handler in webhooks.js will
-      // also insert the Transaction when invoice.payment_succeeded fires,
-      // acting as a safety net.
       console.error('🚨 DEAD-LETTER: Stripe succeeded but DB write failed', {
         stripeCustomerId: customer.id,
         stripeSubscriptionId: subscription.id,
@@ -117,14 +124,11 @@ router.post('/subscribe', async (req, res, next) => {
         amountCents,
         dbError: dbError.message,
       });
-
-      // Still return success to the client — their card was charged.
-      // The webhook will reconcile the DB record.
     }
 
     // ── 6. Respond based on subscription status ──
     if (subscription.status === 'active') {
-      // Payment completed immediately — no SCA required
+      console.log(`└── 🎉 [BACKEND] Success response returned: \x1b[32m${subscription.id}\x1b[0m (Status: active)\n`);
       return res.status(201).json({
         success: true,
         subscriptionId: subscription.id,
@@ -133,10 +137,9 @@ router.post('/subscribe', async (req, res, next) => {
     }
 
     if (subscription.status === 'incomplete') {
-      // SCA / 3D Secure required — send client_secret for confirmation
       const clientSecret =
         subscription.latest_invoice?.payment_intent?.client_secret || null;
-
+      console.log(`└── ⚠️  [BACKEND] Subscription incomplete: requires action (SCA).\n`);
       return res.status(202).json({
         success: true,
         subscriptionId: subscription.id,
@@ -145,7 +148,7 @@ router.post('/subscribe', async (req, res, next) => {
       });
     }
 
-    // Unexpected status
+    console.log(`└── ⚠️  [BACKEND] Unexpected subscription status: ${subscription.status}\n`);
     return res.status(200).json({
       success: true,
       subscriptionId: subscription.id,
