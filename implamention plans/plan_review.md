@@ -1,33 +1,38 @@
-# Implementation Review — Pinned Card Mutual Exclusion (State-Lifting)
+# Implementation Review — Minimalist Checkout Scrollbar & Alignment
 
 Reviewing [implementation_plan.md](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/implamention%20plans/implementation_plan.md)
 
 ---
 
-## 🔴 Critical Issues
+## 🟢 Visual & Layout Enhancements
 
-### 1. Pinned State Retention on Exit
-**The problem:** If a card is clicked (pinned) and then the mouse exits, a standard simple clear of the expanded state inside `onMouseLeave` would collapse the card, violating the pinning spec.
-- **The Fix:** The updated plan successfully resolves this! By clearing **only** `isHovered` in `onMouseLeave` (`onMouseLeave={() => setIsHovered(false)}`), the card's open state `isOpen = isExpanded || isHovered` stays `true` if `isExpanded` is pinned (`true`). Moving the mouse away will collapse the card **only** if it wasn't pinned (clicked) first. This is extremely intuitive and robust.
+### 1. Sticky-Header Architecture
+- **Impact**: Decoupling the scrollable body from the header is an exceptional UX choice. A static close button ensures modal navigation is predictable and matches modern enterprise dashboard design standards.
+- **Aesthetic**: The border line below the header (`border-bottom`) remains anchored, adding structural definition to the overlay while body content glides seamlessly beneath it.
+
+### 2. High-Fidelity Custom Scrollbar
+- **Impact**: Replacing default scrollbars (which ignore CSS boundaries) with a sleek `6px` custom track eliminates visual overflow and ensures the top/bottom rounded corners are perfectly aligned.
+- **Aesthetic**: Applying the brand blue `--color-accent-primary` with `rgba(66, 133, 244, 0.18)` opacity ensures the scrollbar is clean, minimalist, and integrates perfectly with the light theme.
 
 ---
 
-## 🟡 Medium Issues
+## 🟡 Considerations & Mitigations
 
-### 2. Double-Click Toggling Safety
-- **Analysis:** Clicking the card a second time calls `onToggleExpand()` which resets parent state to `null`. This retracts the card instantly and perfectly, guaranteeing a clean, double-click closure experience.
+### 1. Focus Ring Visibility
+- **Analysis**: Custom scrollbars can sometimes conflict with focus visual indicator highlights.
+- **Mitigation**: Moving scrolling to `.modal__body` keeps keyboard accessibility fully functional since standard interactive elements inside `<StripeForm>` retain their respective focus borders unchanged.
 
 ---
 
 ## Summary Table
 
-| # | Severity | Issue | Action Required |
-|---|----------|-------|-----------------|
-| 1 | 🔴 Critical | Clicked State collapse on mouse leave | Maintain `isExpanded` state active inside `onMouseLeave` (Verified correct in plan) |
-| 2 | 🟡 Medium | Double Click toggle speed | Standard toggle provides snappy retraction on subsequent clicks |
+| # | Severity | Finding | Corrective Action |
+|---|----------|---------|-------------------|
+| 1 | 🟢 Enhanc. | Sticky-Header UX upgrade | Standardized header container using flex layouts (Fully Approved) |
+| 2 | 🟢 Enhanc. | Minimalist Scrollbar Design | Implemented 6px semi-transparent brand thumb (Fully Approved) |
 
 ---
 
 ## Verdict
 
-**This implementation plan is fully approved.** The hover-pinning interaction model feels incredibly reactive and provides a state-of-the-art Monthly Donation dashboard experience!
+**This implementation plan is fully approved.** Moving the scrollbar inside the modal body solves the visual alignment clipping flawlessly while making the checkout modal feel incredibly premium and responsive!
