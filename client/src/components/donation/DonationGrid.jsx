@@ -1,13 +1,20 @@
+import { useState } from 'react';
 import DonationCard from './DonationCard';
 import CustomAmountCard from './CustomAmountCard';
 import './DonationGrid.css';
 
 export default function DonationGrid({ boxes, onDonate }) {
+  const [expandedCardId, setExpandedCardId] = useState(null);
+
   // Separate custom amount card from fixed cards
   const fixedBoxes = boxes.filter((b) => !b.isCustomAmount);
 
   // Mark $25/mo as "most popular"
   const popularAmount = 25;
+
+  const toggleExpand = (id) => {
+    setExpandedCardId((prev) => (prev === id ? null : id));
+  };
 
   return (
     <section className="donation-section section" id="donate">
@@ -39,6 +46,8 @@ export default function DonationGrid({ boxes, onDonate }) {
                 box={box}
                 onDonate={onDonate}
                 isPopular={box.amount === popularAmount}
+                isExpanded={expandedCardId === box.id}
+                onToggleExpand={() => toggleExpand(box.id)}
               />
             </div>
           ))}

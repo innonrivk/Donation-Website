@@ -116,10 +116,10 @@ export default function DonationProgramDetails({ tiers, milestones }) {
                     <span className="milestone-item__amount">
                       ${m.amountUsd.toLocaleString()}
                     </span>
-                    <span className="milestone-item__label">{m.label}</span>
                     {m.isRepeatable && (
                       <span className="milestone-item__repeatable">Repeatable</span>
                     )}
+                    <span className="milestone-item__label">{m.label}</span>
                   </div>
                   <p className="milestone-item__desc">{m.description}</p>
                 </div>

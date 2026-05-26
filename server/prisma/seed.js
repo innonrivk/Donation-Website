@@ -171,7 +171,7 @@ async function main() {
       },
       {
         amountUsd: 6000,
-        label: 'Camp Patron',
+        label: 'Camp Patrons',
         description: '"Camp patron" certificate — a camp will be called by your name and your picture will be printed and put in the camp center.',
         isRepeatable: true,
         displayOrder: 4,
