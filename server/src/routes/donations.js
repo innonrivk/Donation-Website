@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
-import { upsertStripeCustomer, createStripeSubscription, listActiveSubscriptions } from '../services/stripe.js';
+import { upsertStripeCustomer, createStripeSubscription, listActiveSubscriptions, stripe, isMockMode } from '../services/stripe.js';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -70,6 +70,22 @@ router.post('/subscribe', async (req, res, next) => {
       });
     }
 
+    // Cancel any previous active subscriptions to prevent double-billing
+    if (activeSubs.length > 0) {
+      console.log(`├── 🧹 [BACKEND] Cancelling ${activeSubs.length} previous active subscription(s) for customer: ${customer.id}`);
+      for (const sub of activeSubs) {
+        try {
+          if (isMockMode) {
+            console.log(`├── 🔌 [STRIPE] (Mock) Cancelled sub: ${sub.id}`);
+          } else {
+            await stripe.subscriptions.cancel(sub.id);
+          }
+        } catch (cancelErr) {
+          console.error(`├── ⚠️ Failed to cancel old sub ${sub.id}:`, cancelErr.message);
+        }
+      }
+    }
+
     // ── 4. Create Stripe subscription ──
     console.log("├── 💸 [BACKEND] Dispatching subscription request to Stripe helper...");
     const subscription = await createStripeSubscription({
@@ -91,12 +107,14 @@ router.post('/subscribe', async (req, res, next) => {
             country,
             stripeCustomerId: customer.id,
             role: 'DONOR',
+            monthlyAmount: amount,
           },
           update: {
             firstName,
             lastName,
             country,
             stripeCustomerId: customer.id,
+            monthlyAmount: amount,
           },
         });
 

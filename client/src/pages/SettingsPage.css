@@ -168,3 +168,45 @@
     padding: 0 var(--space-md) var(--space-md);
   }
 }
+
+/* ===== DANGER ZONE ===== */
+.settings-accordion--danger {
+  border: 1px solid rgba(234, 67, 53, 0.3);
+}
+
+.settings-accordion--danger:hover {
+  box-shadow: 0 0 0 3px rgba(234, 67, 53, 0.15);
+}
+
+.settings-accordion--danger .settings-accordion__header {
+  color: #ea4335;
+}
+
+.settings-accordion--danger .settings-accordion__header:hover {
+  background: rgba(234, 67, 53, 0.02);
+}
+
+.settings-btn--danger {
+  background: rgba(234, 67, 53, 0.05);
+  color: #ea4335;
+  border: 1px solid #ea4335;
+  transition: all var(--transition-fast);
+}
+
+.settings-btn--danger:hover:not(:disabled) {
+  background: #ea4335;
+  color: white;
+  box-shadow: 0 0 8px rgba(234, 67, 53, 0.3);
+}
+
+/* Pulsing outline keyframes */
+@keyframes red-pulse {
+  0% { box-shadow: 0 0 0 0px rgba(234, 67, 53, 0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(234, 67, 53, 0); }
+  100% { box-shadow: 0 0 0 0px rgba(234, 67, 53, 0); }
+}
+
+.settings-accordion--danger-pulse {
+  /* First play the entrance animation, THEN loop the pulse forever */
+  animation: fadeInUp 0.6s ease-out 0.4s both, red-pulse 2.5s ease-in-out 1s infinite;
+}

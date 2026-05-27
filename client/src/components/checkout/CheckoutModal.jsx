@@ -46,7 +46,7 @@ const stripeElementsOptions = {
 
 export default function CheckoutModal({ isOpen, onClose, amount }) {
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Complete Your Donation" size="md">
+    <Modal isOpen={isOpen} onClose={onClose} title="Complete Your Donation" size="lg">
       <div className="checkout">
         <div className="checkout__amount-banner">
           <span className="checkout__amount-label">Monthly Donation</span>

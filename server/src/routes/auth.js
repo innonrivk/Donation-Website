@@ -4,7 +4,8 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { z } from 'zod';
 import { requireAuth, issueTokenCookie } from '../middleware/auth.js';
-import { stripe, isMockMode } from '../services/stripe.js';
+import { stripe, isMockMode, listActiveSubscriptions } from '../services/stripe.js';
+
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -377,10 +378,8 @@ router.get('/me', requireAuth, async (req, res, next) => {
       prisma.donationBox.findMany({ where: { isActive: true }, orderBy: { displayOrder: 'asc' } }),
     ]);
 
-    // Get active subscription amount (latest succeeded transaction amount as proxy)
-    const latestTransaction = user.transactions.find(t => t.status === 'SUCCEEDED');
-    const monthlyAmountCents = latestTransaction?.amount || 0;
-    const monthlyAmountDollars = Math.round(monthlyAmountCents / 100);
+    // Get active subscription amount directly from user.monthlyAmount
+    const monthlyAmountDollars = user.monthlyAmount;
 
     // Match tier
     const currentTier = tiers.find(t => {
@@ -645,11 +644,113 @@ router.post('/settings/change-name', requireAuth, async (req, res, next) => {
         console.error('Failed to update Stripe customer name:', e.message);
       }
     }
-
     return res.status(200).json({
       status: 'NAME_CHANGED',
       message: 'Name updated successfully.',
       user: { firstName: user.firstName, lastName: user.lastName },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ────────────────────────────────────────────────────────
+// POST /api/v1/auth/settings/delete-otp
+// Generate OTP code for account deletion
+// ────────────────────────────────────────────────────────
+router.post('/settings/delete-otp', requireAuth, async (req, res, next) => {
+  try {
+    const plainOtp = await createAndStoreOtp(req.user.email, 'ACCOUNT_DELETE');
+    return res.status(200).json({
+      status: 'OTP_SENT',
+      message: 'Verification code sent to your email.',
+      ...(process.env.NODE_ENV !== 'production' && { devOtp: plainOtp }),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ────────────────────────────────────────────────────────
+// POST /api/v1/auth/settings/delete-account
+// Verify OTP and permanently delete account + billing
+// ────────────────────────────────────────────────────────
+router.post('/settings/delete-account', requireAuth, async (req, res, next) => {
+  try {
+    const { otp } = req.body;
+    if (!otp) {
+      return res.status(400).json({ error: 'validation_error', message: 'Verification code is required.' });
+    }
+
+    const email = req.user.email;
+    const userId = req.user.userId;
+
+    const otpRecord = await prisma.userOtp.findFirst({
+      where: { email, purpose: 'ACCOUNT_DELETE' },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!otpRecord) {
+      return res.status(404).json({ error: 'otp_not_found', message: 'No verification code found. Please request a new one.' });
+    }
+
+    if (new Date() > otpRecord.expiresAt) {
+      await prisma.userOtp.delete({ where: { id: otpRecord.id } });
+      return res.status(410).json({ error: 'otp_expired', message: 'Verification code has expired.' });
+    }
+
+    if (otpRecord.attempts >= MAX_OTP_ATTEMPTS) {
+      await prisma.userOtp.delete({ where: { id: otpRecord.id } });
+      return res.status(429).json({ error: 'too_many_attempts', message: 'Too many attempts.' });
+    }
+
+    const isValid = await bcrypt.compare(otp, otpRecord.otp);
+    if (!isValid) {
+      await prisma.userOtp.update({
+        where: { id: otpRecord.id },
+        data: { attempts: otpRecord.attempts + 1 },
+      });
+      return res.status(401).json({ error: 'invalid_otp', message: 'Incorrect code.' });
+    }
+
+    // Delete OTP record immediately
+    await prisma.userOtp.delete({ where: { id: otpRecord.id } });
+
+    // Cancel active subscriptions on Stripe if customer exists
+    const userRecord = await prisma.user.findUnique({ where: { id: userId } });
+    if (userRecord?.stripeCustomerId) {
+      try {
+        if (isMockMode) {
+          console.log(`🔌 [STRIPE] (Mock) Wiped subscriptions for deleted customer ${userRecord.stripeCustomerId}`);
+        } else {
+          const activeSubs = await listActiveSubscriptions(userRecord.stripeCustomerId);
+          for (const sub of activeSubs) {
+            await stripe.subscriptions.cancel(sub.id);
+          }
+        }
+      } catch (stripeErr) {
+        console.error('Failed to cancel Stripe subscriptions during account deletion:', stripeErr.message);
+      }
+    }
+
+    // Atomic transaction to delete all user records and relations
+    await prisma.$transaction([
+      prisma.vote.deleteMany({ where: { userId } }),
+      prisma.transaction.deleteMany({ where: { userId } }),
+      prisma.claimedMilestone.deleteMany({ where: { userId } }),
+      prisma.user.delete({ where: { id: userId } }),
+    ]);
+
+    // Clear auth cookie
+    res.clearCookie('token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Strict',
+    });
+
+    return res.status(200).json({
+      status: 'DELETED',
+      message: 'Your account has been permanently deleted.',
     });
   } catch (error) {
     next(error);

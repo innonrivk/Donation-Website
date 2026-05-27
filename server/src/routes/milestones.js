@@ -26,20 +26,16 @@ router.post('/claim', requireAuth, async (req, res, next) => {
       return res.status(404).json({ error: 'milestone_not_found', message: 'Milestone not found.' });
     }
 
-    // Check if already claimed (unless repeatable)
-    if (!milestone.isRepeatable) {
-      const existing = await prisma.claimedMilestone.findUnique({
-        where: {
-          userId_milestoneId: {
-            userId: req.user.userId,
-            milestoneId,
-          },
-        },
-      });
+    // Count existing claims for this milestone by the user
+    const claimCount = await prisma.claimedMilestone.count({
+      where: {
+        userId: req.user.userId,
+        milestoneId,
+      },
+    });
 
-      if (existing) {
-        return res.status(409).json({ error: 'already_claimed', message: 'You have already claimed this milestone.' });
-      }
+    if (!milestone.isRepeatable && claimCount >= 1) {
+      return res.status(409).json({ error: 'already_claimed', message: 'You have already claimed this milestone.' });
     }
 
     // Verify user has reached the required lifetime amount
@@ -52,11 +48,22 @@ router.post('/claim', requireAuth, async (req, res, next) => {
       .filter(t => t.status === 'SUCCEEDED')
       .reduce((sum, t) => sum + t.amount, 0) / 100;
 
-    if (lifetimeTotalDollars < milestone.amountUsd) {
-      return res.status(403).json({
-        error: 'not_eligible',
-        message: `You need a lifetime total of $${milestone.amountUsd} to claim this milestone. Current: $${lifetimeTotalDollars.toFixed(0)}.`,
-      });
+    const requiredAmountDollars = milestone.isRepeatable
+      ? (claimCount + 1) * milestone.amountUsd
+      : milestone.amountUsd;
+
+    if (lifetimeTotalDollars < requiredAmountDollars) {
+      if (milestone.isRepeatable) {
+        return res.status(403).json({
+          error: 'not_eligible',
+          message: `You need a lifetime total of $${requiredAmountDollars} to claim this repeatable milestone again. Current: $${lifetimeTotalDollars.toFixed(0)}.`,
+        });
+      } else {
+        return res.status(403).json({
+          error: 'not_eligible',
+          message: `You need a lifetime total of $${milestone.amountUsd} to claim this milestone. Current: $${lifetimeTotalDollars.toFixed(0)}.`,
+        });
+      }
     }
 
     // Claim the milestone

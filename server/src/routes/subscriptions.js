@@ -37,6 +37,12 @@ router.post('/update', requireAuth, async (req, res, next) => {
         },
       });
 
+      // Update monthlyAmount in DB
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { monthlyAmount: amount },
+      });
+
       return res.status(200).json({
         status: 'UPDATED',
         message: `Subscription updated to $${amount}/month.`,
@@ -68,6 +74,12 @@ router.post('/update', requireAuth, async (req, res, next) => {
       proration_behavior: 'none',
     });
 
+    // Update monthlyAmount in DB
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { monthlyAmount: amount },
+    });
+
     return res.status(200).json({
       status: 'UPDATED',
       message: `Subscription updated to $${amount}/month.`,
@@ -91,6 +103,10 @@ router.post('/cancel', requireAuth, async (req, res, next) => {
 
     if (isMockMode) {
       console.log(`🔌 [STRIPE] (Mock) Cancelling subscription for ${user.email}`);
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { monthlyAmount: 0 },
+      });
       return res.status(200).json({
         status: 'CANCELLED',
         message: 'Subscription will be cancelled at the end of the current billing period.',
@@ -104,6 +120,11 @@ router.post('/cancel', requireAuth, async (req, res, next) => {
 
     await stripe.subscriptions.update(activeSubs[0].id, {
       cancel_at_period_end: true,
+    });
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { monthlyAmount: 0 },
     });
 
     return res.status(200).json({

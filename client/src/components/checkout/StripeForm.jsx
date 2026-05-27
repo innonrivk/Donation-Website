@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
+import DonationReceipt from '../donation/DonationReceipt';
 import { useAuth } from '../../context/AuthContext';
 import { createSubscription } from '../../services/api';
 import COUNTRIES from '../../utils/countries';
@@ -64,6 +65,18 @@ export default function StripeForm({ amount, onClose }) {
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [infoVerified, setInfoVerified] = useState(false);
+
+  const getTierName = (amt) => {
+    if (amt >= 170) return 'Patron';
+    if (amt >= 85) return 'Shareholder';
+    return 'Regular';
+  };
+  const getTierPerks = (amt) => {
+    if (amt >= 170) return ['All Shareholder perks', 'Sponsor name on camp t-shirts', 'Quarterly social thank-yous'];
+    if (amt >= 85) return ['All Regular perks', 'Campaign creation voting', 'Quarterly meetings & extra votes'];
+    return ['Monthly updates newsletter', 'Yearly zoom impact event', 'Discounted OMP group tours'];
+  };
 
   // Mock card states and formatting handlers
   const [mockCard, setMockCard] = useState('0000 0000 0000 0000');
@@ -221,21 +234,56 @@ export default function StripeForm({ amount, onClose }) {
   };
 
   if (success) {
+    const tierName = getTierName(amount);
+    const tierPerks = getTierPerks(amount);
+    const referenceId = 'TXN_' + Math.floor(100000 + Math.random() * 900000);
+    const dateStr = new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+
     return (
-      <div className="checkout-form__success">
-        <div className="checkout-form__success-icon">
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
+      <div className="checkout-form__success" style={{ padding: '8px 0' }}>
+        {/* Dynamic CSS Confetti Particles */}
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 99 }}>
+          {Array.from({ length: 40 }).map((_, idx) => (
+            <div
+              key={idx}
+              className="confetti-piece"
+              style={{
+                position: 'absolute',
+                top: `-20px`,
+                left: `${Math.random() * 100}%`,
+                width: `${5 + Math.random() * 8}px`,
+                height: `${8 + Math.random() * 12}px`,
+                backgroundColor: ['#4285f4', '#ea4335', '#fbbc04', '#34a853'][Math.floor(Math.random() * 4)],
+                opacity: 0.8,
+                transform: `rotate(${Math.random() * 360}deg)`,
+                animation: `float-down ${1.5 + Math.random() * 2}s ease-out forwards`,
+                animationDelay: `${Math.random() * 0.4}s`
+              }}
+            />
+          ))}
         </div>
-        <h3>Thank You! 🎉</h3>
-        <p>
+
+        <h3 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-text-primary)', marginBottom: '4px' }}>Thank You! 🎉</h3>
+        <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginBottom: '14px' }}>
           Your monthly donation of <strong>${amount}/mo</strong> has been set up successfully.
-          You're now making a difference!
         </p>
-        <Button variant="primary" onClick={onClose}>
-          Done
-        </Button>
+
+        <DonationReceipt
+          referenceId={referenceId}
+          dateStr={dateStr}
+          amount={amount}
+          donorName={`${formData.firstName} ${formData.lastName}`}
+          donorEmail={formData.email}
+          country={formData.country}
+          tierName={tierName}
+          tierPerks={tierPerks}
+          showPrintButton={true}
+          onClose={onClose}
+        />
       </div>
     );
   }
@@ -403,6 +451,20 @@ export default function StripeForm({ amount, onClose }) {
         )}
       </div>
 
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', margin: '16px 0 8px' }} className="print-hide">
+        <input
+          id="info-verify-checkbox"
+          type="checkbox"
+          checked={infoVerified}
+          onChange={(e) => setInfoVerified(e.target.checked)}
+          style={{ width: '18px', height: '18px', marginTop: '2px', cursor: 'pointer' }}
+          required
+        />
+        <label htmlFor="info-verify-checkbox" style={{ fontSize: '13px', color: 'var(--color-text-secondary)', cursor: 'pointer', userSelect: 'none' }}>
+          I confirm that my personal information is correct (Email: <strong>{formData.email}</strong>). It is critical that my email is accurate.
+        </label>
+      </div>
+
       {submitError && (
         <div className="checkout-form__error" role="alert" aria-live="polite">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -420,7 +482,8 @@ export default function StripeForm({ amount, onClose }) {
         size="lg"
         fullWidth
         loading={loading}
-        disabled={(!isMockStripe && (!stripe || !elements)) || loading}
+        disabled={(!isMockStripe && (!stripe || !elements)) || loading || !infoVerified}
+        className="print-hide"
       >
         Donate ${amount}/month
       </Button>

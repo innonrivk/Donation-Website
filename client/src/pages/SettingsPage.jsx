@@ -5,7 +5,7 @@ import * as api from '../services/api';
 import './SettingsPage.css';
 
 export default function SettingsPage() {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, profileData, logout } = useAuth();
 
   // ── Name ──
   const [nameForm, setNameForm] = useState({
@@ -31,6 +31,15 @@ export default function SettingsPage() {
   const [emLoading, setEmLoading] = useState(false);
   const [emMsg, setEmMsg] = useState({ type: '', text: '' });
   const [devEmOtp, setDevEmOtp] = useState('');
+
+  // ── Danger Zone (Cancel/Delete) ──
+  const [deleteStep, setDeleteStep] = useState('idle'); // idle → otp_sent
+  const [deleteOtp, setDeleteOtp] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteMsg, setDeleteMsg] = useState({ type: '', text: '' });
+  const [devDeleteOtp, setDevDeleteOtp] = useState('');
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelMsg, setCancelMsg] = useState({ type: '', text: '' });
 
   // ── Accordion ──
   const [openSection, setOpenSection] = useState(null);
@@ -144,6 +153,63 @@ export default function SettingsPage() {
       setEmLoading(false);
     }
   };
+
+  const handleCancelSubscriptionInSettings = async () => {
+    if (!window.confirm('Are you sure you want to cancel your monthly subscription?')) return;
+    setCancelLoading(true);
+    setCancelMsg({ type: '', text: '' });
+    try {
+      const result = await api.cancelSubscription();
+      setCancelMsg({ type: 'success', text: result.message });
+      await refreshUser();
+    } catch (err) {
+      setCancelMsg({ type: 'error', text: err.message });
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
+  const handleRequestDeleteOtp = async () => {
+    if (!window.confirm('WARNING: Are you absolutely sure you want to delete your account? This will wipe your donations, milestones, and settings, and cannot be undone.')) return;
+    setDeleteLoading(true);
+    setDeleteMsg({ type: '', text: '' });
+    setDevDeleteOtp('');
+    try {
+      const result = await api.requestDeleteOtp();
+      setDeleteStep('otp_sent');
+      setDeleteMsg({ type: 'success', text: 'Verification code sent to your email.' });
+      if (result.devOtp) {
+        setDevDeleteOtp(result.devOtp);
+      }
+    } catch (err) {
+      setDeleteMsg({ type: 'error', text: err.message });
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async (e) => {
+    e.preventDefault();
+    if (!deleteOtp) {
+      setDeleteMsg({ type: 'error', text: 'Verification code is required.' });
+      return;
+    }
+    setDeleteLoading(true);
+    setDeleteMsg({ type: '', text: '' });
+    try {
+      const result = await api.deleteAccount({ otp: deleteOtp });
+      setDeleteMsg({ type: 'success', text: result.message });
+      // Clear data and logout
+      setTimeout(async () => {
+        await logout();
+      }, 2000);
+    } catch (err) {
+      setDeleteMsg({ type: 'error', text: err.message });
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
 
   return (
     <div className="settings-page">
@@ -373,7 +439,124 @@ export default function SettingsPage() {
             </div>
           )}
         </div>
+
+        {/* ── Danger Zone ── */}
+        <div className="settings-accordion settings-accordion--danger settings-accordion--danger-pulse animate-fade-in-up animate-delay-4">
+          <button
+            className={`settings-accordion__header ${openSection === 'danger' ? 'settings-accordion__header--open' : ''}`}
+            onClick={() => toggleSection('danger')}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              Danger Zone
+            </span>
+            <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20" className="settings-accordion__icon">
+              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+
+          {openSection === 'danger' && (
+            <div className="settings-accordion__body animate-fade-in">
+              {/* Cancel Subscription */}
+              <div className="settings-form" style={{ borderBottom: '1px solid rgba(234, 67, 53, 0.1)', paddingBottom: '20px' }}>
+                <h4 style={{ margin: 0, color: 'var(--color-text-primary)', fontSize: '15px' }}>Cancel Monthly Subscription</h4>
+                <p className="settings-info">
+                  This will stop your recurring monthly contribution at the end of the current billing cycle. You will keep your tier status until the period ends.
+                </p>
+                {cancelMsg.text && <p className={`dash-msg dash-msg--${cancelMsg.type}`}>{cancelMsg.text}</p>}
+                <button
+                  type="button"
+                  className="settings-btn settings-btn--danger"
+                  onClick={handleCancelSubscriptionInSettings}
+                  disabled={cancelLoading || (profileData?.monthlyAmount || 0) === 0}
+                >
+                  {cancelLoading ? <span className="auth-form__spinner" /> : (profileData?.monthlyAmount || 0) > 0 ? 'Cancel Subscription' : 'No Active Subscription'}
+                </button>
+              </div>
+
+              {/* Delete User */}
+              <div className="settings-form" style={{ paddingTop: '20px' }}>
+                <h4 style={{ margin: 0, color: '#ea4335', fontSize: '15px' }}>Permanently Delete Account</h4>
+                <p className="settings-info">
+                  Once deleted, your account, billing profiles, votes, and tier milestones cannot be recovered. This action requires email OTP confirmation.
+                </p>
+
+                {deleteStep === 'idle' && (
+                  <>
+                    {deleteMsg.text && <p className={`dash-msg dash-msg--${deleteMsg.type}`}>{deleteMsg.text}</p>}
+                    <button
+                      type="button"
+                      className="settings-btn settings-btn--danger"
+                      onClick={handleRequestDeleteOtp}
+                      disabled={deleteLoading}
+                    >
+                      {deleteLoading ? <span className="auth-form__spinner" /> : 'Request Account Deletion OTP'}
+                    </button>
+                  </>
+                )}
+
+                {deleteStep === 'otp_sent' && (
+                  <form onSubmit={handleDeleteAccount} className="settings-form" style={{ paddingTop: 0 }}>
+                    {devDeleteOtp && (
+                      <div style={{
+                        padding: '10px 12px',
+                        background: 'rgba(234, 67, 53, 0.08)',
+                        border: '1px dashed #ea4335',
+                        borderRadius: '6px',
+                        marginBottom: '12px',
+                        fontSize: '13px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}>
+                        <span style={{ color: '#ea4335' }}>✨ [Dev Mode] Code: <strong>{devDeleteOtp}</strong></span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeleteOtp(devDeleteOtp);
+                          }}
+                          style={{
+                            background: '#ea4335',
+                            color: 'white',
+                            border: 'none',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Autofill
+                        </button>
+                      </div>
+                    )}
+                    <div className="auth-form__field">
+                      <label htmlFor="del-otp">Verification Code</label>
+                      <input
+                        id="del-otp"
+                        type="text"
+                        value={deleteOtp}
+                        onChange={e => setDeleteOtp(e.target.value)}
+                        maxLength={6}
+                        placeholder="6-digit code"
+                        required
+                        style={{ bordercolor: 'rgba(234, 67, 53, 0.3)' }}
+                      />
+                    </div>
+                    {deleteMsg.text && <p className={`dash-msg dash-msg--${deleteMsg.type}`}>{deleteMsg.text}</p>}
+                    <button type="submit" className="settings-btn" style={{ background: '#ea4335' }} disabled={deleteLoading}>
+                      {deleteLoading ? <span className="auth-form__spinner" /> : 'Permanently Delete My Account'}
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </main>
     </div>
+
   );
 }

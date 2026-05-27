@@ -94,7 +94,19 @@ router.post(
 
         case 'customer.subscription.deleted': {
           const subscription = event.data.object;
+          const customerId = subscription.customer;
           console.log(`🔔 Subscription cancelled: ${subscription.id}`);
+
+          const user = await prisma.user.findFirst({
+            where: { stripeCustomerId: customerId },
+          });
+          if (user) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { monthlyAmount: 0 },
+            });
+            console.log(`🔄 Reset monthlyAmount for ${user.email} due to subscription cancellation.`);
+          }
           break;
         }
 

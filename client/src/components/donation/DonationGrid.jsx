@@ -28,6 +28,9 @@ export default function DonationGrid({ boxes, onDonate }) {
             Select a plan that works for you. Every contribution, big or small, helps fund
             community projects and create lasting change.
           </p>
+          <div className="donation-section__note">
+            <strong>💡 Note:</strong> If you donate without having registered, you can easily access your dashboard and achievements at any time! Simply sign up with the exact same email address you used for your donation.
+          </div>
         </div>
 
         <div className="donation-grid">

@@ -134,3 +134,15 @@ export function claimMilestone(data) {
   });
 }
 
+// ── Danger Zone ──
+export function requestDeleteOtp() {
+  return request('/auth/settings/delete-otp', { method: 'POST' });
+}
+
+export function deleteAccount(data) {
+  return request('/auth/settings/delete-account', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+

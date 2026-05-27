@@ -15,6 +15,9 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust reverse proxy headers (e.g. Nginx, Vite proxy) for correct client IP detection in rate limiting
+app.set('trust proxy', 1);
+
 // Stripe webhooks need raw body, so mount BEFORE json middleware
 app.use('/api/v1/webhooks', webhookRoutes);
 
@@ -29,10 +32,10 @@ app.use(cookieParser());
 // API Routes
 app.use('/api/v1/content', contentRoutes);
 
-// Rate limit donation endpoints: 5 requests per IP per 15 minutes
+// Rate limit donation endpoints: 100 requests per IP per 15 minutes in production
 const donationLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 5 : 999999,
+  max: process.env.NODE_ENV === 'production' ? 100 : 999999,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -42,10 +45,10 @@ const donationLimiter = rateLimit({
 });
 app.use('/api/v1/donations', donationLimiter, donationRoutes);
 
-// Auth routes — rate limited to 10 requests per IP per 15 minutes
+// Auth routes — rate limited to 100 requests per IP per 15 minutes in production
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 10 : 999999,
+  max: process.env.NODE_ENV === 'production' ? 100 : 999999,
   standardHeaders: true,
   legacyHeaders: false,
   message: {

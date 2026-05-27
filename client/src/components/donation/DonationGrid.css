@@ -32,6 +32,22 @@
   line-height: 1.7;
 }
 
+.donation-section__note {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  background: rgba(66, 133, 244, 0.04);
+  border: 1px dashed rgba(66, 133, 244, 0.3);
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-lg);
+  margin-top: var(--space-lg);
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.5;
+  text-align: left;
+  box-sizing: border-box;
+}
+
 .donation-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

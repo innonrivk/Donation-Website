@@ -26,7 +26,7 @@ export default function Header() {
           {isAuthenticated ? (
             <Link to="/dashboard" className="header__nav-link header__nav-link--cta">Dashboard</Link>
           ) : (
-            <Link to="/login" className="header__nav-link header__nav-link--cta">Sign In</Link>
+            <Link to="/login" className="header__nav-link header__nav-link--cta">Sign In/Sign Up</Link>
           )}
         </nav>
       </div>
