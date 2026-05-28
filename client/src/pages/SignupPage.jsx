@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 import './LoginPage.css'; // Reuse shared auth styles
 
 export default function SignupPage() {
   const navigate = useNavigate();
-  const { signup } = useAuth();
+  const { signup, googleLogin } = useAuth();
 
   const [form, setForm] = useState({
     firstName: '',
@@ -62,6 +63,19 @@ export default function SignupPage() {
       }
     } catch (err) {
       setError(err.message || 'Sign up failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setLoading(true);
+    setError('');
+    try {
+      await googleLogin({ credential: credentialResponse.credential });
+      navigate('/dashboard', { replace: true });
+    } catch (err) {
+      setError(err.message || 'Google sign-up failed.');
     } finally {
       setLoading(false);
     }
@@ -202,6 +216,23 @@ export default function SignupPage() {
             )}
           </button>
         </form>
+
+        <div className="auth-card__divider">
+          <span>or</span>
+        </div>
+
+        <div className="auth-form__google-container" style={{ display: 'flex', justifyContent: 'center', width: '100%', marginBottom: '16px' }}>
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => {
+              setError('Google OAuth verification failed. Please try again.');
+            }}
+            useOneTap
+            theme="filled_blue"
+            shape="pill"
+            width="100%"
+          />
+        </div>
 
         <p className="auth-card__footer">
           Already have an account?{' '}

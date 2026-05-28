@@ -1,147 +1,131 @@
-# Implementation Plan — Dashboard Enhancements, Dynamic Receipt Viewer, Print Optimization, and Main Screen Polish
+# Implementation Plan — Authentication Upgrade & UI Refinements
 
-This plan addresses layout changes, interactive tier presets, dynamic receipt generation, printing pagination fixes, and main screen copy and styling improvements.
+This plan details the technical approach for implementing real Google Authentication, an active Email OTP system (Nodemailer), and resolving outstanding UI issues (Carousel smoothness, Receipt PDF print fix, and Settings animation stripping).
+
+---
+
+## 🧠 Core Objectives
+
+1. **Google OAuth 2.0 Integration**: Replace mock Google login with actual `@react-oauth/google` frontend components and `google-auth-library` backend verification.
+   - **Prisma Schema Update**: Add an optional `googleId` field to the `User` model to track Google-linked accounts.
+2. **Email OTP via Nodemailer**: Replace console-logged mock OTPs with real emails sent to users during signup, password changes, and email changes.
+   - **Local Development Fallback**: If SMTP configuration is missing or fails, automatically log the OTP code in the console with a bright warning box so development is never blocked.
+3. **Credit Card Mock Mode**: Ensure Stripe payment processing remains in mock/test mode.
+4. **UI Refinements**: 
+   - **Active Projects Carousel**: Slow down carousel animations, add a hover-to-expand behavior on desktop (which collapses all cards when the mouse leaves the section entirely), and automatically close other cards when one expands.
+   - **Donation Receipt PDF**: Fix the blank PDF download using a robust print-isolation CSS flattening map.
+   - **Settings Page**: Remove double-loading and staggered entrance animations.
 
 ---
 
 ## Proposed Changes
 
-### 1. User Dashboard Layout & Interaction
+### 1. Database & Environment Configuration
 
-#### [MODIFY] [DashboardPage.jsx](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/pages/DashboardPage.jsx)
-* **Interactive Tiers**:
-  * In the available tiers row elements inside `CustomAmountCard`, make the rows clickable:
-    * Add `onClick={() => handleStartDonation(10)}` (Regular), `handleStartDonation(85)` (Shareholder), and `handleStartDonation(170)` (Patron).
-    * Add cursor pointer styling and subtle transition effects.
-* **Layout Symmetrical Restructuring**:
-  * Remove the "Tier perks" (`.dash-card--rewards`) card completely.
-  * Reorganize `.dashboard-grid` columns:
-    * **Left Column** (`.dashboard-col-left`): Donation History (`.dash-card--history`).
-    * **Right Column** (`.dashboard-col-right`): "Change total donation amount" (`.dash-card--update`) and "Lifetime Milestones" (`.dash-card--milestones`).
-* **Dynamic Receipt Reconstruction**:
-  * Introduce state `selectedReceiptTx` to track which history record is currently clicked.
-  * Add click handlers to `.dash-timeline__item` rows so clicking them sets `selectedReceiptTx(t)`.
-  * Import `Modal` and render it inside `DashboardPage.jsx` when `selectedReceiptTx` is set.
-  * Reconstruct and render the full print-friendly receipt dynamically inside the modal using transaction attributes (`id`, `amount`, `createdAt`) and donor profile attributes (`firstName`, `lastName`, `email`, `country`) with zero database storage overhead.
-  * Match transaction amounts against tier definitions dynamically to display the correct subscription tier and its active perks list.
-  * Add a "Print Receipt" button that triggers standard `window.print()` for instant PDF generation of the historical receipt.
+#### [MODIFY] `server/prisma/schema.prisma`
+- Add an optional `googleId String? @unique @map("google_id")` field to the `User` model.
+```prisma
+model User {
+  id                 String              @id @default(uuid())
+  email              String              @unique
+  password           String?
+  googleId           String?             @unique @map("google_id")
+  firstName          String              @map("first_name")
+  lastName           String              @map("last_name")
+  // ... rest of user model
+}
+```
 
-#### [MODIFY] [DashboardPage.css](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/pages/DashboardPage.css)
-* Adjust `.dashboard-grid` to lay out in a dual column grid:
-  ```css
-  .dashboard-grid {
-    display: grid;
-    grid-template-columns: 1.1fr 1fr;
-    gap: var(--space-lg);
-    align-items: start;
-  }
-  ```
-* Style `.dashboard-col-left` and `.dashboard-col-right` containers.
-* Set a `min-height: 480px` on `.dash-card--history` so the history panel has a substantial visual footprint even when empty.
-* Add hover and active states to `.dash-timeline__item--clickable` to indicate clickability (cursor: `pointer`, background changes, focus borders).
+#### [MODIFY] `server/.env` & `client/.env`
+- Include the following configuration keys (with placeholder values and templates):
+```env
+# Google OAuth
+GOOGLE_CLIENT_ID=your-google-client-id-here
+
+# SMTP Configuration (Nodemailer)
+SMTP_HOST=smtp.mailtrap.io
+SMTP_PORT=2525
+SMTP_USER=your-smtp-user
+SMTP_PASS=your-smtp-password
+SMTP_FROM=noreply@openmindprojects.org
+```
 
 ---
 
-### 2. Donation Transaction Form (Checkout Modal & Receipts)
+### 2. Backend Authentication Upgrades
 
-#### [MODIFY] [CheckoutModal.jsx](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/components/checkout/CheckoutModal.jsx)
-* Change the default modal size from `size="md"` (520px) to `size="lg"` (680px) to provide more breathing room for the receipt, preventing text clustering.
+#### [NEW] Dependency Installation
+- Run `npm install google-auth-library nodemailer` inside the `server/` directory.
 
-#### [MODIFY] [StripeForm.jsx](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/components/checkout/StripeForm.jsx)
-* **Compact Layout**:
-  * Remove the success checkmark icon (`.checkout-form__success-icon`) completely to reduce vertical stretching.
-  * Tighten spacing:
-    * Reduce `.print-receipt-only` padding from `24px` to `16px`.
-    * Reduce receipt sub-header margins and detail row padding to fit comfortably without gaps.
-* **Vite Printing 1-Page Pagination Fix**:
-  * Update `@media print` styling to explicitly reset layout height, min-height, margins, and visibility on the outer viewport elements (`html`, `body`, `#root`, `.dashboard-page`, `.modal-backdrop`, `.modal-content`):
-    ```css
-    @media print {
-      html, body, #root, .dashboard-page, .modal-backdrop, .modal-content {
-        height: auto !important;
-        min-height: 0 !important;
-        overflow: visible !important;
-        background: white !important;
-        box-shadow: none !important;
-        border: none !important;
-      }
-      body {
-        margin: 0 !important;
-        padding: 0 !important;
-      }
-      .print-hide {
-        display: none !important;
-      }
-      .print-receipt-only {
-        position: static !important;
-        width: 100% !important;
-        border: 2px dashed #4285f4 !important;
-        background: white !important;
-        margin: 0 !important;
-        padding: 30px !important;
-        box-shadow: none !important;
-        page-break-inside: avoid !important;
-      }
-    }
-    ```
-    Changing positioning to `static` allows the browser layout engine to measure content dynamically, restricting printing strictly to a single page.
+#### [MODIFY] `server/src/routes/auth.js`
+- **Nodemailer Transport Setup**:
+  - Implement a helper to create the Nodemailer transport dynamically.
+  - If SMTP configuration is incomplete or fails, fallback to logging the OTP in the console with an easily visible block.
+- **OTP Helper Update**:
+  - Update `createAndStoreOtp` to dispatch real HTML/text emails using the Nodemailer transport.
+- **Google Token Verification (`POST /api/v1/auth/google`)**:
+  - Use `google-auth-library`'s `OAuth2Client` to verify the incoming Google ID token (`credential`).
+  - Extract `sub` (Google user ID), `email`, `given_name`, and `family_name`.
+  - Look up the user by `googleId` or `email`.
+  - Link standard/shadow accounts dynamically by setting the `googleId` if verified.
 
 ---
 
-### 3. Donation Main Screen Polish
+### 3. Frontend Authentication Upgrades
 
-#### [MODIFY] [Header.jsx](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/components/layout/Header.jsx)
-* Change the CTA Link button text from `"Sign In"` to `"Sign In/Sign Up"`.
+#### [NEW] Dependency Installation
+- Run `npm install @react-oauth/google` in the `client/` directory.
 
-#### [MODIFY] [Header.css](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/components/layout/Header.css)
-* Add high-specificity hover styling for `.header__nav-link--cta:hover` using `!important` to override parent class glass-white transitions:
-  ```css
-  .header__nav-link--cta:hover {
-    background: #5c94f7 !important; /* Premium lighter blue background */
-    color: white !important; /* Keep white text */
-    box-shadow: var(--shadow-glow-accent);
-    transform: translateY(-1px);
-  }
-  ```
+#### [MODIFY] `client/src/main.jsx`
+- Wrap the main application component tree inside `<GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>`.
 
-#### [MODIFY] [DonationGrid.jsx](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/components/donation/DonationGrid.jsx)
-* In the header, render a beautiful callout note explaining user signups for email matching:
-  ```jsx
-  <div className="donation-section__note animate-fade-in-up animate-delay-1">
-    <strong>💡 Note:</strong> If you donate without having registered, you can easily access your dashboard and achievements at any time! Simply sign up with the exact same email address you used for your donation.
-  </div>
-  ```
+#### [MODIFY] `client/src/pages/LoginPage.jsx` & `client/src/pages/SignupPage.jsx`
+- Replace mock Google buttons with the real Google Login components/hooks from `@react-oauth/google`.
+- Send the received token back to `/api/v1/auth/google` for authentication.
 
-#### [MODIFY] [DonationGrid.css](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/components/donation/DonationGrid.css)
-* Add premium layout styles for `.donation-section__note` matching our brand styling:
-  ```css
-  .donation-section__note {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-    background: rgba(66, 133, 244, 0.04);
-    border: 1px dashed rgba(66, 133, 244, 0.3);
-    border-radius: var(--radius-md);
-    padding: var(--space-md) var(--space-lg);
-    margin-top: var(--space-lg);
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
-    line-height: 1.5;
-    text-align: left;
-    box-sizing: border-box;
-  }
-  ```
+---
+
+### 4. Main Landing Page — Projects Carousel & Hover Behaviors
+
+#### [MODIFY] `client/src/components/donation/ProjectsSection.jsx`
+- Implement `onMouseEnter={() => handleCardHover(project.id)}` and `onMouseLeave={handleCardLeave}` handlers on each project card.
+- Live check `window.matchMedia('(hover: hover)').matches` within the hover handlers to only enable hover expansions on desktop screens.
+- On mouse leaving the entire projects grid/section container, reset `expandedId` to `null` to restore the default balanced layout.
+- Ensure clicking on a different card automatically closes any currently expanded card.
+
+#### [MODIFY] `client/src/components/donation/ProjectsSection.css`
+- Change transition duration from `0.4s` to `0.7s` using a high-end ease-out timing curve `cubic-bezier(0.16, 1, 0.3, 1)` for an ultra-smooth glide.
+- Remove `pointer-events: none` on siblings so neighboring cards can be hovered directly.
+- Ensure sibling transition rates match the active expansion rates for perfect harmony.
+
+---
+
+### 5. Premium Donation Receipt — Print CSS Overhaul
+
+#### [MODIFY] `client/public/print.css`
+- Hide non-receipt page components (`.dashboard-nav`, `.modal__header`, `.print-hide`) using `display: none !important`.
+- Flatten structural containers (`body`, `#root`, `.modal-overlay`, `.modal`) using standard static, transparent block layout styles to ensure content is fully printable.
+- Strip browser headers/footers completely using `@page { margin: 10mm !important; }`.
+
+---
+
+### 6. User Dashboard — Settings Page Animation Removal
+
+#### [MODIFY] `client/src/pages/SettingsPage.jsx` & `SettingsPage.css`
+- Strip staggered entrance classes and delay triggers so the whole settings section loads instantly.
+- Decouple the Danger Zone red pulse animation from entrance transitions so it runs immediately on mount.
 
 ---
 
 ## Verification Plan
 
-### Automated
-1. `npm run build` — confirm client compiles clean with zero compiler errors.
+### Automated Verification
+1. Run database migrations to apply the `googleId` field: `npx prisma migrate dev --name add_google_id`.
+2. Build frontend and backend production bundles: `npm run build` to verify clean compiles.
 
 ### Manual Verification
-1. **Interactive Tier Presets**: Click on regular, shareholder, or patron tiers inside the card. Verify it opens the `CheckoutModal` pre-populated with the exact amount.
-2. **Dashboard Column Grid**: Verify Donation History resides on the left, update widget and milestones on the right. Verify History card has a large min-height.
-3. **Dynamic Receipt Viewer**: Click on a transaction row in the History timeline. Reconstructed receipt details modal with print/save CTA loads instantly.
-4. **1-Page Print**: Trigger print modal inside checkout or history. Confirm print layout yields exactly 1 page of receipt on PDF output.
-5. **Radical CTA Button Hover**: Hover over "Sign In/Sign Up" button. Transition turns smoothly to lighter blue instead of radical dark-white replacement.
+1. **Google Login / Signup**: Perform a full Google login, confirm successful account creation (or dynamic linking to a matching email), and verify the user session.
+2. **Email OTP Verification**: Trigger signup and setting change OTPs. Check that an actual email is received (or check console logs if SMTP variables are not set, confirming the fallback logs correctly).
+3. **Carousel Smoothness**: Hover over cards on a desktop. Verify the 0.7s glide transition and full auto-collapse of inactive siblings. Verify all cards collapse when leaving the section.
+4. **Receipt PDF printing**: Verify Ctrl+P prints a clean, single-page receipt.
+5. **Dashboard Settings**: Open the Settings tab; confirm it loads statically and instantly.

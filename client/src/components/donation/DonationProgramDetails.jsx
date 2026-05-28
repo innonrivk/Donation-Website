@@ -36,7 +36,7 @@ export default function DonationProgramDetails({ tiers, milestones }) {
         {/* ── Tiers ── */}
         {hasTiers && (
           <>
-            <div className="program-details__header animate-fade-in-up">
+            <div className="program-details__header">
               <span className="program-details__label">Your Benefits</span>
               <h2 className="program-details__title">
                 Donation <span className="gradient-text">Tiers</span>
@@ -57,7 +57,7 @@ export default function DonationProgramDetails({ tiers, milestones }) {
                 return (
                   <div
                     key={tier.id}
-                    className={`tier-card${isFeatured ? ' tier-card--featured' : ''} animate-fade-in-up animate-delay-${index + 1}`}
+                    className={`tier-card${isFeatured ? ' tier-card--featured' : ''}`}
                   >
                     {isFeatured && (
                       <div className="tier-card__badge">Best Value</div>
@@ -95,7 +95,7 @@ export default function DonationProgramDetails({ tiers, milestones }) {
         {/* ── Money Milestones ── */}
         {hasMilestones && (
           <div className="milestones-section" id="milestones">
-            <div className="milestones-header animate-fade-in-up">
+            <div className="milestones-header">
               <span className="milestones-header__label">Lifetime Rewards</span>
               <h2 className="milestones-header__title">
                 Total Donation <span className="gradient-text">Objectives</span>
@@ -110,7 +110,7 @@ export default function DonationProgramDetails({ tiers, milestones }) {
               {milestones.map((m, index) => (
                 <div
                   key={m.id}
-                  className={`milestone-item animate-fade-in-up animate-delay-${Math.min(index + 1, 6)}`}
+                  className="milestone-item"
                 >
                   <div className="milestone-item__top">
                     <span className="milestone-item__amount">

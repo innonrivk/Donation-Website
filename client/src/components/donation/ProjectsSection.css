@@ -1,6 +1,7 @@
 .projects-section {
   background: var(--color-bg-secondary);
   position: relative;
+  overflow: hidden;
 }
 
 .projects-section::before {
@@ -43,21 +44,54 @@
   line-height: 1.7;
 }
 
-.projects-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-lg);
-  align-items: start; /* Allow cards to grow independently without stretching siblings */
+/* Carousel Container and Track Layout */
+.projects-carousel-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 var(--space-3xl);
+  box-sizing: border-box;
 }
 
+.projects-carousel-track {
+  display: flex;
+  gap: var(--space-lg);
+  align-items: start;
+  width: 100%;
+  transition: all 0.4s ease;
+  min-height: 320px;
+}
+
+/* Set flex properties based on visible projects count */
+.projects-carousel-track.count-3 > .project-card {
+  width: calc((100% - (var(--space-lg) * 2)) / 3);
+  flex: 0 0 calc((100% - (var(--space-lg) * 2)) / 3);
+}
+
+.projects-carousel-track.count-2 > .project-card {
+  width: calc((100% - var(--space-lg)) / 2);
+  flex: 0 0 calc((100% - var(--space-lg)) / 2);
+}
+
+.projects-carousel-track.count-1 > .project-card {
+  width: 100%;
+  flex: 0 0 100%;
+}
+
+/* Project Card core styles */
 .project-card {
   background: var(--color-bg-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-xl);
-  transition: all var(--transition-base);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  opacity: 1;
+  transform: scale(1);
 }
 
 .project-card:hover {
@@ -65,6 +99,12 @@
   border-color: var(--color-border-hover);
   transform: translateY(-4px);
   box-shadow: var(--shadow-md);
+}
+
+/* Sibling states when a card expands */
+.project-card--sibling-of-expanded {
+  opacity: 0.55;
+  transform: scale(0.96) !important;
 }
 
 .project-card__icon-wrap {
@@ -85,13 +125,13 @@
   margin-bottom: var(--space-sm);
 }
 
-/* Container for details to animate max-height smoothly */
+/* Container for details with animated height */
 .project-card__details-wrap {
   position: relative;
   max-height: 4.8em; /* Exactly 3 lines (1.6 line-height * 3) */
   overflow: hidden;
   margin-bottom: var(--space-md);
-  transition: max-height 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+  transition: max-height 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .project-card__details {
@@ -101,13 +141,13 @@
   margin-bottom: 0;
 }
 
-/* Glassmorphic fade overlay for clipped text */
+/* Fade mask for collapsed text */
 .project-card__fade-mask {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 2em;
+  height: 2.2em;
   background: linear-gradient(to bottom, transparent, var(--color-bg-card));
   pointer-events: none;
   transition: opacity 0.3s ease, background 0.3s ease;
@@ -117,7 +157,6 @@
   background: linear-gradient(to bottom, transparent, var(--color-bg-card-hover));
 }
 
-/* Expanded state (React State / Tapped) */
 .project-card--expanded .project-card__fade-mask {
   opacity: 0;
 }
@@ -126,15 +165,75 @@
   transform: rotate(180deg);
 }
 
-/* Premium Desktop Hover States - strictly desktop with pointer to avoid mobile double-tap bugs */
-@media (hover: hover) and (pointer: fine) {
-  .project-card:hover .project-card__fade-mask {
-    opacity: 0;
-  }
+/* Expanded Card Border Highlight */
+.project-card--expanded {
+  border-color: var(--brand-blue);
+  box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.15), var(--shadow-lg);
+  background: var(--color-bg-card-hover);
+}
 
-  .project-card:hover .project-card__chevron {
-    transform: rotate(180deg);
-  }
+/* Custom Navigation Arrow Buttons */
+.carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  z-index: 10;
+  box-shadow: var(--shadow-sm);
+}
+
+.carousel-arrow:hover {
+  background: var(--brand-blue);
+  color: white;
+  border-color: var(--brand-blue);
+  box-shadow: var(--shadow-glow-accent);
+}
+
+.carousel-arrow--left {
+  left: -12px;
+}
+
+.carousel-arrow--right {
+  right: -12px;
+}
+
+/* Carousel pagination indicator dots */
+.carousel-dots {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-xs);
+  margin-top: var(--space-xl);
+}
+
+.carousel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-border-hover);
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: 0;
+}
+
+.carousel-dot:hover {
+  background: var(--color-text-secondary);
+}
+
+.carousel-dot--active {
+  background: var(--brand-blue);
+  width: 20px;
+  border-radius: var(--radius-full);
 }
 
 /* Expand Collapse Button */
@@ -152,7 +251,7 @@
   padding: var(--space-xs) 0;
   transition: color 0.2s ease;
   align-self: flex-start;
-  margin-top: auto; /* Push button to the bottom of the card content */
+  margin-top: auto;
 }
 
 .project-card__expand-btn:hover {
@@ -163,14 +262,53 @@
   transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-@media (max-width: 1024px) {
-  .projects-grid {
-    grid-template-columns: repeat(2, 1fr);
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .projects-carousel-container {
+    padding: 0 var(--space-xl);
+  }
+  .carousel-arrow--left {
+    left: -8px;
+  }
+  .carousel-arrow--right {
+    right: -8px;
   }
 }
 
 @media (max-width: 640px) {
-  .projects-grid {
-    grid-template-columns: 1fr;
+  .carousel-arrow {
+    display: none; /* Hide arrows on mobile touch viewports; cycle via dots */
   }
+  .projects-carousel-container {
+    padding: 0;
+  }
+}
+
+/* Custom premium entrance where card drops down elegantly from above */
+@keyframes cardAppearFromAbove {
+  0% {
+    opacity: 0;
+    transform: translateY(-24px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.project-card--animate {
+  animation: cardAppearFromAbove 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0; /* Wait for animation trigger */
+}
+
+.project-card--animate-1 {
+  animation-delay: 0s;
+}
+
+.project-card--animate-2 {
+  animation-delay: 0.04s;
+}
+
+.project-card--animate-3 {
+  animation-delay: 0.08s;
 }

@@ -207,6 +207,6 @@
 }
 
 .settings-accordion--danger-pulse {
-  /* First play the entrance animation, THEN loop the pulse forever */
-  animation: fadeInUp 0.6s ease-out 0.4s both, red-pulse 2.5s ease-in-out 1s infinite;
+  /* Loop the pulse outline forever without entrance animation delays */
+  animation: red-pulse 2.5s ease-in-out infinite;
 }

@@ -32,6 +32,7 @@ model User {
   id                 String              @id @default(uuid())
   email              String              @unique
   password           String?
+  googleId           String?             @unique @map("google_id")
   firstName          String              @map("first_name")
   lastName           String              @map("last_name")
   country            String              @default("")

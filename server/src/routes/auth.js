@@ -3,6 +3,8 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { z } from 'zod';
+import nodemailer from 'nodemailer';
+import { OAuth2Client } from 'google-auth-library';
 import { requireAuth, issueTokenCookie } from '../middleware/auth.js';
 import { stripe, isMockMode, listActiveSubscriptions } from '../services/stripe.js';
 
@@ -12,6 +14,9 @@ const prisma = new PrismaClient();
 const SALT_ROUNDS = 12;
 const OTP_EXPIRY_MINUTES = 15;
 const MAX_OTP_ATTEMPTS = 5;
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 // ── Zod schemas ──
 const SignupSchema = z.object({
@@ -37,6 +42,104 @@ function generateOtp() {
   return crypto.randomInt(100000, 999999).toString();
 }
 
+async function sendOtpEmail(email, otp, purpose, newEmail = null) {
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpPort = process.env.SMTP_PORT;
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  const smtpFrom = process.env.SMTP_FROM || 'noreply@openmindprojects.org';
+
+  const isSmtpConfigured = smtpHost && smtpPort && smtpUser && smtpPass;
+
+  let subject = 'OMP Donation Site Verification Code';
+  let title = 'Your Verification Code';
+  let messageText = `Your code is ${otp}. It is valid for 15 minutes.`;
+
+  if (purpose === 'REGISTRATION') {
+    subject = 'Activate Your OMP Account';
+    title = 'Activate Your Account';
+    messageText = `Thank you for signing up to support OpenmindProjects. Your verification code is ${otp}. It is valid for 15 minutes.`;
+  } else if (purpose === 'PASSWORD_CHANGE') {
+    subject = 'Reset Your OMP Password';
+    title = 'Reset Your Password';
+    messageText = `A password change request was triggered. Your verification code is ${otp}. It is valid for 15 minutes.`;
+  } else if (purpose === 'EMAIL_CHANGE') {
+    subject = 'Verify Your New OMP Email';
+    title = 'Verify Your New Email';
+    messageText = `An email change request to change your account email to ${newEmail} was triggered. Your verification code is ${otp}. It is valid for 15 minutes.`;
+  } else if (purpose === 'ACCOUNT_DELETE') {
+    subject = 'Confirm Your OMP Account Deletion';
+    title = 'Delete Your Account';
+    messageText = `An account deletion request was triggered. Your verification code is ${otp}. It is valid for 15 minutes. This action is permanent.`;
+  }
+
+  const htmlContent = `
+    <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 30px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <img src="https://openmindprojects.org/wp-content/uploads/2021/04/omp-logo.png" alt="OMP Logo" style="height: 48px; width: auto;" />
+      </div>
+      <h2 style="font-size: 20px; font-weight: 700; color: #1a202c; text-align: center; margin-top: 0; margin-bottom: 12px;">${title}</h2>
+      <p style="font-size: 14px; color: #4a5568; line-height: 1.6; text-align: center; margin-bottom: 24px;">${messageText}</p>
+      <div style="text-align: center; margin-bottom: 28px;">
+        <span style="display: inline-block; font-family: monospace; font-size: 32px; font-weight: 700; color: #3182ce; background-color: #ebf8ff; padding: 12px 28px; border-radius: 8px; letter-spacing: 0.1em; border: 1px dashed #bee3f8;">${otp}</span>
+      </div>
+      <p style="font-size: 12px; color: #a0aec0; text-align: center; line-height: 1.5; margin: 0;">
+        If you did not make this request, please ignore this email.<br />
+        &copy; ${new Date().getFullYear()} OpenmindProjects. All rights reserved.
+      </p>
+    </div>
+  `;
+
+  if (isSmtpConfigured && smtpHost !== 'smtp.mailtrap.io' && smtpUser !== 'your-smtp-user') {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: parseInt(smtpPort, 10),
+        secure: parseInt(smtpPort, 10) === 465,
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+      });
+
+      await transporter.sendMail({
+        from: `"OpenmindProjects" <${smtpFrom}>`,
+        to: newEmail || email,
+        subject,
+        text: messageText,
+        html: htmlContent,
+      });
+
+      console.log(`\n📧 [EMAIL SUCCESS] Real SMTP email dispatched successfully to ${newEmail || email}.\n`);
+      return true;
+    } catch (err) {
+      console.error(`\n❌ [SMTP ERROR] Failed to send real email to ${newEmail || email}:`, err.message);
+      // Fall through to console fallback
+    }
+  }
+
+  // Fallback console logging (with warning box)
+  const borderChar = '═';
+  const width = 64;
+  const printLine = (text, colorCode = '33') => {
+    const spaces = width - text.length - 4;
+    console.log(`\x1b[${colorCode}m║ \x1b[0m${text}${ ' '.repeat(spaces) }\x1b[${colorCode}m ║\x1b[0m`);
+  };
+
+  console.log(`\n\x1b[33m╔${borderChar.repeat(width - 2)}╗\x1b[0m`);
+  printLine('⚠️  DEVELOPMENT FALLBACK LOGGED OTP CODE', '33');
+  printLine('─'.repeat(width - 4), '33');
+  printLine(`To:      ${newEmail || email}`);
+  printLine(`Purpose: ${purpose}`);
+  printLine(`Code:    \x1b[32m\x1b[1m${otp}\x1b[0m`);
+  printLine('─'.repeat(width - 4), '33');
+  printLine('Configure SMTP_HOST/SMTP_USER/SMTP_PASS in server/.env', '90');
+  printLine('to enable actual email dispatch.', '90');
+  console.log(`\x1b[33m╚${borderChar.repeat(width - 2)}╝\x1b[0m\n`);
+
+  return false;
+}
+
 async function createAndStoreOtp(email, purpose, newEmail = null) {
   // Delete any existing OTPs for this email + purpose
   await prisma.userOtp.deleteMany({ where: { email, purpose } });
@@ -54,13 +157,8 @@ async function createAndStoreOtp(email, purpose, newEmail = null) {
     },
   });
 
-  // In production: send the OTP via email service.
-  // For development: log it to the console.
-  if (purpose === 'EMAIL_CHANGE') {
-    console.log(`\n📧 [OTP] Code to change email of ${email} to ${newEmail}: \x1b[33m${plainOtp}\x1b[0m\n`);
-  } else {
-    console.log(`\n📧 [OTP] Code for ${email} (purpose: ${purpose}): \x1b[33m${plainOtp}\x1b[0m\n`);
-  }
+  // Send the OTP via real Nodemailer email with console fallback
+  await sendOtpEmail(email, plainOtp, purpose, newEmail);
 
   return plainOtp;
 }
@@ -282,44 +380,76 @@ router.post('/login', async (req, res, next) => {
   }
 });
 
-// ────────────────────────────────────────────────────────
-// POST /api/v1/auth/google
-// Google token verification + auto shadow merge
-// Uses mock mode for local development
-// ────────────────────────────────────────────────────────
 router.post('/google', async (req, res, next) => {
   try {
-    const { email, firstName, lastName, googleId } = req.body;
+    const { credential, email: mockEmail, firstName: mockFirstName, lastName: mockLastName, googleId: mockGoogleId } = req.body;
 
-    if (!email) {
-      return res.status(400).json({ error: 'missing_email', message: 'Email is required from Google.' });
+    let email, firstName, lastName, googleId;
+
+    if (credential) {
+      // Actual Google token verification
+      try {
+        const ticket = await googleClient.verifyIdToken({
+          idToken: credential,
+          audience: GOOGLE_CLIENT_ID,
+        });
+        const payload = ticket.getPayload();
+        googleId = payload.sub;
+        email = payload.email;
+        firstName = payload.given_name;
+        lastName = payload.family_name;
+      } catch (verifyErr) {
+        console.error('❌ [GOOGLE AUTH ERROR] Failed to verify ID token:', verifyErr.message);
+        return res.status(401).json({ error: 'invalid_credential', message: 'Invalid Google ID token.' });
+      }
+    } else if (process.env.NODE_ENV !== 'production' && mockEmail) {
+      // Local development mock fallback
+      email = mockEmail;
+      firstName = mockFirstName || 'Mock';
+      lastName = mockLastName || 'User';
+      googleId = mockGoogleId || `mock-google-id-${Date.now()}`;
+      console.log(`🧪 [GOOGLE AUTH] (Mock Fallback) Logged in as mock user: ${email}`);
+    } else {
+      return res.status(400).json({ error: 'missing_credential', message: 'Google Credential ID token is required.' });
     }
 
-    // In production: verify the Google ID token with Google's API.
-    // For now: trust the mock data.
-    let user = await prisma.user.findUnique({ where: { email } });
+    if (!email) {
+      return res.status(400).json({ error: 'missing_email', message: 'Email not provided by Google OAuth.' });
+    }
 
-    if (user && !user.password) {
-      // Shadow account — auto-merge (Google acts as trusted IdP)
-      user = await prisma.user.update({
-        where: { email },
-        data: {
-          password: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), SALT_ROUNDS),
-          firstName: firstName || user.firstName,
-          lastName: lastName || user.lastName,
-        },
-      });
-    } else if (!user) {
-      // Create new user
-      user = await prisma.user.create({
-        data: {
-          email,
-          firstName: firstName || 'Google',
-          lastName: lastName || 'User',
-          password: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), SALT_ROUNDS),
-          role: 'DONOR',
-        },
-      });
+    // Check if the user already exists by googleId
+    let user = await prisma.user.findUnique({ where: { googleId } });
+
+    if (!user) {
+      // Check if user exists by email instead
+      user = await prisma.user.findUnique({ where: { email } });
+
+      if (user) {
+        // Dynamic merge: Update existing user to include googleId
+        user = await prisma.user.update({
+          where: { email },
+          data: {
+            googleId,
+            // If it's a shadow account (password is null), set a random password hash
+            ...(!user.password && {
+              password: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), SALT_ROUNDS),
+            }),
+          },
+        });
+      } else {
+        // Create new user linked with Google OAuth
+        user = await prisma.user.create({
+          data: {
+            email,
+            googleId,
+            firstName: firstName || 'Google',
+            lastName: lastName || 'User',
+            role: 'DONOR',
+            // Random password for users who only use Google Auth
+            password: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), SALT_ROUNDS),
+          },
+        });
+      }
     }
 
     issueTokenCookie(res, user);

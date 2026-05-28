@@ -19,7 +19,7 @@ export default function DonationGrid({ boxes, onDonate }) {
   return (
     <section className="donation-section section" id="donate">
       <div className="container">
-        <div className="donation-section__header animate-fade-in-up">
+        <div className="donation-section__header">
           <span className="donation-section__label">Make an Impact</span>
           <h2 className="donation-section__title">
             Choose Your <span className="gradient-text">Monthly Donation</span>
@@ -35,7 +35,7 @@ export default function DonationGrid({ boxes, onDonate }) {
 
         <div className="donation-grid">
           {/* Custom amount card spans first column */}
-          <div className="donation-grid__custom animate-fade-in-up animate-delay-1">
+          <div className="donation-grid__custom">
             <CustomAmountCard onDonate={onDonate} />
           </div>
 
@@ -43,7 +43,7 @@ export default function DonationGrid({ boxes, onDonate }) {
           {fixedBoxes.map((box, index) => (
             <div
               key={box.id}
-              className={`animate-fade-in-up animate-delay-${Math.min(index + 2, 6)}`}
+              className=""
             >
               <DonationCard
                 box={box}

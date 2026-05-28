@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 import './LoginPage.css';
 
@@ -30,6 +31,19 @@ export default function LoginPage() {
       navigate(from, { replace: true });
     } catch (err) {
       setError(err.message || 'Login failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setLoading(true);
+    setError('');
+    try {
+      await googleLogin({ credential: credentialResponse.credential });
+      navigate(from, { replace: true });
+    } catch (err) {
+      setError(err.message || 'Google login failed.');
     } finally {
       setLoading(false);
     }
@@ -134,23 +148,40 @@ export default function LoginPage() {
           <span>or</span>
         </div>
 
-        <button
-          className="auth-form__google-btn"
-          onClick={() => setShowMockPanel(!showMockPanel)}
-          type="button"
-        >
-          <svg viewBox="0 0 24 24" width="20" height="20">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-          </svg>
-          Sign in with Google
-        </button>
+        <div className="auth-form__google-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', width: '100%' }}>
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => {
+              setError('Google OAuth verification failed. Please try again.');
+            }}
+            useOneTap
+            theme="filled_blue"
+            shape="pill"
+            width="100%"
+          />
+          
+          <button
+            className="auth-card__mock-toggle-btn"
+            onClick={() => setShowMockPanel(!showMockPanel)}
+            type="button"
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--color-text-secondary)',
+              fontSize: '11px',
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              opacity: 0.7,
+              marginTop: '4px'
+            }}
+          >
+            🧪 Toggle Local Dev Mock Panel
+          </button>
+        </div>
 
         {showMockPanel && (
-          <div className="auth-card__mock-panel animate-fade-in">
-            <p className="auth-card__mock-label">🧪 Dev Mock — Select a persona:</p>
+          <div className="auth-card__mock-panel animate-fade-in" style={{ width: '100%' }}>
+            <p className="auth-card__mock-label">🧪 Dev Mock (Offline fallback):</p>
             {mockPersonas.map((p, i) => (
               <button
                 key={i}

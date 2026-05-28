@@ -1,23 +1,118 @@
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './ProjectsSection.css';
 
+/**
+ * ProjectsSection displays community projects in an elegant auto-cycling sliding carousel.
+ * Supports manual arrow controls, dot selectors, in-place card expansion, and auto-pause on hover.
+ * 
+ * @param {Object} props
+ * @param {Array} props.projects - Array of project objects from the DB.
+ */
 export default function ProjectsSection({ projects }) {
-  const [expanded, setExpanded] = useState(new Set());
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [expandedId, setExpandedId] = useState(null);
+  const [visibleCount, setVisibleCount] = useState(3);
+  const [isHovered, setIsHovered] = useState(false);
+  const isPausedRef = useRef(false);
 
+  // Fallback check
   if (!projects || projects.length === 0) return null;
 
-  const toggle = (id) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+  const n = projects.length;
+  const isCarouselEnabled = n >= 3;
+
+  // Track window resizing to dynamically update visible slice count
+  useEffect(() => {
+    const handleResize = () => {
+      const w = window.innerWidth;
+      if (w <= 640) {
+        setVisibleCount(1);
+      } else if (w <= 1024) {
+        setVisibleCount(2);
+      } else {
+        setVisibleCount(3);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Handle auto-rotation interval
+  useEffect(() => {
+    if (!isCarouselEnabled || expandedId !== null || isHovered) return;
+
+    const timer = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % n);
+    }, 4000);
+
+    return () => clearInterval(timer);
+  }, [isCarouselEnabled, expandedId, isHovered, n]);
+
+  // Compute indices of currently visible project cards
+  const getVisibleProjects = () => {
+    if (!isCarouselEnabled) return projects;
+    const list = [];
+    const count = Math.min(visibleCount, n);
+    for (let i = 0; i < count; i++) {
+      list.push(projects[(currentIndex + i) % n]);
+    }
+    return list;
   };
 
+  /**
+   * Toggles the expanded status of a single project card.
+   * @param {number|string} id - The database ID of the clicked project.
+   */
+  const handleToggleExpand = (id) => {
+    setExpandedId((prev) => (prev === id ? null : id));
+  };
+
+  const handleMouseEnterCard = (id) => {
+    const isDesktop = window.matchMedia('(hover: hover)').matches;
+    if (isDesktop) {
+      setExpandedId(id);
+    }
+  };
+
+  const handleMouseLeaveCard = () => {
+    // No-op on card leave to prevent layout jumping/flickers when transitioning between cards.
+    // Collapsing is handled section-wide on mouse leave instead.
+  };
+
+  /**
+   * Moves carousel to the previous item and resets focus.
+   */
+  const handlePrev = () => {
+    if (!isCarouselEnabled) return;
+    setCurrentIndex((prev) => (prev - 1 + n) % n);
+  };
+
+  /**
+   * Moves carousel to the next item.
+   */
+  const handleNext = () => {
+    if (!isCarouselEnabled) return;
+    setCurrentIndex((prev) => (prev + 1) % n);
+  };
+
+  const visibleList = getVisibleProjects();
+
   return (
-    <section className="projects-section section" id="projects">
+    <section 
+      className="projects-section section" 
+      id="projects"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        const isDesktop = window.matchMedia('(hover: hover)').matches;
+        if (isDesktop) {
+          setExpandedId(null);
+        }
+      }}
+    >
       <div className="container">
-        <div className="projects-section__header animate-fade-in-up">
+        <div className="projects-section__header">
           <span className="projects-section__label">Where Your Money Goes</span>
           <h2 className="projects-section__title">
             Active <span className="gradient-text">Projects</span>
@@ -28,47 +123,113 @@ export default function ProjectsSection({ projects }) {
           </p>
         </div>
 
-        <div className="projects-grid">
-          {projects.map((project, index) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              index={index}
-              isExpanded={expanded.has(project.id)}
-              toggle={toggle}
-            />
-          ))}
+        <div className="projects-carousel-container">
+          {/* Arrow navigation for carousel */}
+          {isCarouselEnabled && (
+            <button 
+              className="carousel-arrow carousel-arrow--left print-hide"
+              onClick={handlePrev}
+              aria-label="Previous Project"
+              type="button"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+              </svg>
+            </button>
+          )}
+
+          {/* Carousel Viewport Track */}
+          <div className={`projects-carousel-track count-${visibleList.length}`}>
+            {visibleList.map((project, idx) => {
+              const isCardExpanded = expandedId === project.id;
+              const hasAnyCardExpanded = expandedId !== null;
+              const isSibling = hasAnyCardExpanded && !isCardExpanded;
+              
+              return (
+                <ProjectCard
+                  key={`${currentIndex}-${project.id}`}
+                  project={project}
+                  index={idx}
+                  isExpanded={isCardExpanded}
+                  isSiblingOfExpanded={isSibling}
+                  onToggle={() => handleToggleExpand(project.id)}
+                  onMouseEnter={() => handleMouseEnterCard(project.id)}
+                  onMouseLeave={handleMouseLeaveCard}
+                />
+              );
+            })}
+          </div>
+
+          {isCarouselEnabled && (
+            <button 
+              className="carousel-arrow carousel-arrow--right print-hide"
+              onClick={handleNext}
+              aria-label="Next Project"
+              type="button"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </svg>
+            </button>
+          )}
         </div>
+
+        {/* Carousel pagination dots */}
+        {isCarouselEnabled && (
+          <div className="carousel-dots print-hide">
+            {projects.map((proj, idx) => (
+              <button
+                key={proj.id}
+                className={`carousel-dot ${idx === currentIndex ? 'carousel-dot--active' : ''}`}
+                onClick={() => setCurrentIndex(idx)}
+                aria-label={`Jump to project ${idx + 1}`}
+                type="button"
+              />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
 }
 
-function ProjectCard({ project, index, isExpanded, toggle }) {
-  const [isHovered, setIsHovered] = useState(false);
+/**
+ * ProjectCard represents a singular active project in the carousel slider.
+ */
+function ProjectCard({
+  project,
+  index,
+  isExpanded,
+  isSiblingOfExpanded,
+  onToggle,
+  onMouseEnter,
+  onMouseLeave,
+}) {
   const detailsRef = useRef(null);
-
-  const isOpen = isExpanded || isHovered;
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      toggle(project.id);
+      onToggle();
     }
   };
 
-  // Determine dynamic maxHeight. Collapsed default is 4.8em.
-  const maxHeightStyle = isOpen
-    ? `${detailsRef.current?.scrollHeight || 300}px`
+  // Compute expanding dynamic height style
+  const maxHeightStyle = isExpanded
+    ? `${detailsRef.current?.scrollHeight || 400}px`
     : '4.8em';
 
   return (
     <div
-      className={`project-card${isExpanded ? ' project-card--expanded' : ''} animate-fade-in-up animate-delay-${index + 1}`}
+      className={`project-card ${isExpanded ? 'project-card--expanded' : ''} ${
+        isSiblingOfExpanded ? 'project-card--sibling-of-expanded' : ''
+      } project-card--animate project-card--animate-${index + 1}`}
       aria-expanded={isExpanded}
-      onClick={() => toggle(project.id)}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onClick={onToggle}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       style={{ cursor: 'pointer' }}
     >
       <div className="project-card__icon-wrap">
@@ -85,12 +246,11 @@ function ProjectCard({ project, index, isExpanded, toggle }) {
         <div className="project-card__fade-mask" />
       </div>
 
-      {/* Dedicated expand/collapse button — accessible to keyboard and screen readers */}
       <button
         className="project-card__expand-btn"
         onClick={(e) => {
           e.stopPropagation();
-          toggle(project.id);
+          onToggle();
         }}
         onKeyDown={handleKeyDown}
         aria-label={isExpanded ? `Show less about ${project.projectName}` : `Read more about ${project.projectName}`}
@@ -117,8 +277,42 @@ function ProjectCard({ project, index, isExpanded, toggle }) {
   );
 }
 
+/**
+ * ProjectIcon returns appropriate themed SVG icon mark matching camp name tags.
+ */
 function ProjectIcon({ name }) {
   const lower = name.toLowerCase();
+
+  // English & Literacy Camps
+  if (lower.includes('english') || lower.includes('literacy')) {
+    return (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+        <path d="M9 6h7M9 10h7M9 14h4" />
+      </svg>
+    );
+  }
+
+  // Eco-Bricks & Sustainability Camps
+  if (lower.includes('eco') || lower.includes('bricks') || lower.includes('sustainability')) {
+    return (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+      </svg>
+    );
+  }
+
+  // Digital camp & tech labs
+  if (lower.includes('digital') || lower.includes('tech') || lower.includes('computer')) {
+    return (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+        <line x1="8" y1="21" x2="16" y2="21" />
+        <line x1="12" y1="17" x2="12" y2="21" />
+      </svg>
+    );
+  }
 
   // Train The Trainer Camp — graduation cap
   if (lower.includes('trainer') || lower.includes('train')) {
