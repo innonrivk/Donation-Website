@@ -1,0 +1,106 @@
+/* ===== DASHBOARD NAV ===== */
+.dashboard-nav {
+  background: white;
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.dashboard-nav__container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  gap: var(--space-lg);
+}
+
+.dashboard-nav__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  text-decoration: none;
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.dashboard-nav__brand-sub {
+  font-weight: 400;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .dashboard-nav__brand-sub {
+    display: inline;
+  }
+}
+
+.dashboard-nav__links {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.dashboard-nav__link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+
+.dashboard-nav__link:hover {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.dashboard-nav__link--active {
+  background: rgba(66, 133, 244, 0.08);
+  color: var(--brand-blue);
+  font-weight: 600;
+}
+
+.dashboard-nav__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.dashboard-nav__user {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .dashboard-nav__user {
+    display: inline;
+  }
+}
+
+.dashboard-nav__logout {
+  padding: 6px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: white;
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dashboard-nav__logout:hover {
+  border-color: var(--color-error);
+  color: var(--color-error);
+  background: var(--color-error-bg);
+}

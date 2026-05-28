@@ -1,100 +1,131 @@
-# Implementation Plan — Minimalist Checkout Scrollbar & Alignment
+# Implementation Plan — Authentication Upgrade & UI Refinements
 
-This plan outlines the engineering steps to fix the visual alignment of the donation form's vertical scrollbar and replace it with a sleek, custom-designed minimalist scrollbar.
-
----
-
-## The Issue
-1. **Misaligned Rounded Corner Clipping**: Currently, `.modal` has `overflow-y: auto` and a border radius of `24px`. Browser scrollbars are straight, causing them to clip the rounded top/bottom corners awkwardly.
-2. **Scrolling Header**: When scrolling the modal content, the header (with the Close button) scrolls out of view, forcing the user to scroll back up to exit.
-3. **Crowded Layout**: The scrollbar sits right against the close button, disrupting the header alignment.
+This plan details the technical approach for implementing real Google Authentication, an active Email OTP system (Nodemailer), and resolving outstanding UI issues (Carousel smoothness, Receipt PDF print fix, and Settings animation stripping).
 
 ---
 
-## Proposed Solution
-We will transition the modal layout to a **sticky-header flexbox architecture** and move scrolling exclusively to the modal body.
+## 🧠 Core Objectives
 
-```mermaid
-graph TD
-  A[Modal Overlay] --> B[Modal Container: overflow: hidden, display: flex, flex-direction: column]
-  B --> C[Modal Header: flex-shrink: 0, border-bottom]
-  B --> D[Modal Body: flex-grow: 1, overflow-y: auto, custom scrollbar]
-```
-
-### Key Upgrades:
-- **Sticky Header**: The modal header stays fixed at the top, ensuring the "Complete Your Donation" title and close button are always anchored and accessible.
-- **Scrollbar Isolation**: Moving `overflow-y: auto` to `.modal__body` prevents the scrollbar from intersecting the top rounded corners of the modal.
-- **Minimalist Styling**: Implement a lightweight, custom scrollbar with a semi-transparent brand accent thumb (`rgba(66, 133, 244, 0.2)`) and a transparent track.
+1. **Google OAuth 2.0 Integration**: Replace mock Google login with actual `@react-oauth/google` frontend components and `google-auth-library` backend verification.
+   - **Prisma Schema Update**: Add an optional `googleId` field to the `User` model to track Google-linked accounts.
+2. **Email OTP via Nodemailer**: Replace console-logged mock OTPs with real emails sent to users during signup, password changes, and email changes.
+   - **Local Development Fallback**: If SMTP configuration is missing or fails, automatically log the OTP code in the console with a bright warning box so development is never blocked.
+3. **Credit Card Mock Mode**: Ensure Stripe payment processing remains in mock/test mode.
+4. **UI Refinements**: 
+   - **Active Projects Carousel**: Slow down carousel animations, add a hover-to-expand behavior on desktop (which collapses all cards when the mouse leaves the section entirely), and automatically close other cards when one expands.
+   - **Donation Receipt PDF**: Fix the blank PDF download using a robust print-isolation CSS flattening map.
+   - **Settings Page**: Remove double-loading and staggered entrance animations.
 
 ---
 
 ## Proposed Changes
 
-### [MODIFY] [Modal.css](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/components/ui/Modal.css)
-- Restructure `.modal` to use flex layout and disable outer overflow:
-  ```css
-  .modal {
-    background: var(--color-bg-secondary);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-xl);
-    width: 100%;
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden; /* Mask rounded corners, prevent layout leaking */
-    animation: modalIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-    box-shadow: var(--shadow-lg), var(--shadow-glow-purple);
-  }
-  ```
-- Make `.modal__header` fixed:
-  ```css
-  .modal__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--space-lg) var(--space-xl);
-    border-bottom: 1px solid var(--color-border);
-    flex-shrink: 0; /* Keep size constant */
-  }
-  ```
-- Move scrollbar and scrolling to `.modal__body`:
-  ```css
-  .modal__body {
-    padding: var(--space-xl);
-    overflow-y: auto; /* Only body scrolls */
-    flex-grow: 1;
-  }
-  ```
-- Implement ultra-premium minimalist scrollbar styling using brand color custom properties:
-  ```css
-  /* Scrollbar inside modal body */
-  .modal__body::-webkit-scrollbar {
-    width: 6px;
-  }
+### 1. Database & Environment Configuration
 
-  .modal__body::-webkit-scrollbar-track {
-    background: transparent;
-  }
+#### [MODIFY] `server/prisma/schema.prisma`
+- Add an optional `googleId String? @unique @map("google_id")` field to the `User` model.
+```prisma
+model User {
+  id                 String              @id @default(uuid())
+  email              String              @unique
+  password           String?
+  googleId           String?             @unique @map("google_id")
+  firstName          String              @map("first_name")
+  lastName           String              @map("last_name")
+  // ... rest of user model
+}
+```
 
-  .modal__body::-webkit-scrollbar-thumb {
-    background: rgba(66, 133, 244, 0.18); /* Subtle brand blue */
-    border-radius: var(--radius-full);
-    transition: background var(--transition-fast);
-  }
+#### [MODIFY] `server/.env` & `client/.env`
+- Include the following configuration keys (with placeholder values and templates):
+```env
+# Google OAuth
+GOOGLE_CLIENT_ID=your-google-client-id-here
 
-  .modal__body::-webkit-scrollbar-thumb:hover {
-    background: rgba(66, 133, 244, 0.35); /* Interactive state */
-  }
-  ```
+# SMTP Configuration (Nodemailer)
+SMTP_HOST=smtp.mailtrap.io
+SMTP_PORT=2525
+SMTP_USER=your-smtp-user
+SMTP_PASS=your-smtp-password
+SMTP_FROM=noreply@openmindprojects.org
+```
+
+---
+
+### 2. Backend Authentication Upgrades
+
+#### [NEW] Dependency Installation
+- Run `npm install google-auth-library nodemailer` inside the `server/` directory.
+
+#### [MODIFY] `server/src/routes/auth.js`
+- **Nodemailer Transport Setup**:
+  - Implement a helper to create the Nodemailer transport dynamically.
+  - If SMTP configuration is incomplete or fails, fallback to logging the OTP in the console with an easily visible block.
+- **OTP Helper Update**:
+  - Update `createAndStoreOtp` to dispatch real HTML/text emails using the Nodemailer transport.
+- **Google Token Verification (`POST /api/v1/auth/google`)**:
+  - Use `google-auth-library`'s `OAuth2Client` to verify the incoming Google ID token (`credential`).
+  - Extract `sub` (Google user ID), `email`, `given_name`, and `family_name`.
+  - Look up the user by `googleId` or `email`.
+  - Link standard/shadow accounts dynamically by setting the `googleId` if verified.
+
+---
+
+### 3. Frontend Authentication Upgrades
+
+#### [NEW] Dependency Installation
+- Run `npm install @react-oauth/google` in the `client/` directory.
+
+#### [MODIFY] `client/src/main.jsx`
+- Wrap the main application component tree inside `<GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>`.
+
+#### [MODIFY] `client/src/pages/LoginPage.jsx` & `client/src/pages/SignupPage.jsx`
+- Replace mock Google buttons with the real Google Login components/hooks from `@react-oauth/google`.
+- Send the received token back to `/api/v1/auth/google` for authentication.
+
+---
+
+### 4. Main Landing Page — Projects Carousel & Hover Behaviors
+
+#### [MODIFY] `client/src/components/donation/ProjectsSection.jsx`
+- Implement `onMouseEnter={() => handleCardHover(project.id)}` and `onMouseLeave={handleCardLeave}` handlers on each project card.
+- Live check `window.matchMedia('(hover: hover)').matches` within the hover handlers to only enable hover expansions on desktop screens.
+- On mouse leaving the entire projects grid/section container, reset `expandedId` to `null` to restore the default balanced layout.
+- Ensure clicking on a different card automatically closes any currently expanded card.
+
+#### [MODIFY] `client/src/components/donation/ProjectsSection.css`
+- Change transition duration from `0.4s` to `0.7s` using a high-end ease-out timing curve `cubic-bezier(0.16, 1, 0.3, 1)` for an ultra-smooth glide.
+- Remove `pointer-events: none` on siblings so neighboring cards can be hovered directly.
+- Ensure sibling transition rates match the active expansion rates for perfect harmony.
+
+---
+
+### 5. Premium Donation Receipt — Print CSS Overhaul
+
+#### [MODIFY] `client/public/print.css`
+- Hide non-receipt page components (`.dashboard-nav`, `.modal__header`, `.print-hide`) using `display: none !important`.
+- Flatten structural containers (`body`, `#root`, `.modal-overlay`, `.modal`) using standard static, transparent block layout styles to ensure content is fully printable.
+- Strip browser headers/footers completely using `@page { margin: 10mm !important; }`.
+
+---
+
+### 6. User Dashboard — Settings Page Animation Removal
+
+#### [MODIFY] `client/src/pages/SettingsPage.jsx` & `SettingsPage.css`
+- Strip staggered entrance classes and delay triggers so the whole settings section loads instantly.
+- Decouple the Danger Zone red pulse animation from entrance transitions so it runs immediately on mount.
 
 ---
 
 ## Verification Plan
 
-### Automated Checks
-1. Validate client build: Run `npm run build` in `/client` to verify Vite builds successfully with zero errors.
+### Automated Verification
+1. Run database migrations to apply the `googleId` field: `npx prisma migrate dev --name add_google_id`.
+2. Build frontend and backend production bundles: `npm run build` to verify clean compiles.
 
 ### Manual Verification
-1. **Modal Header Lock Test**: Open the checkout modal and verify the header remains static while the form is scrolled.
-2. **Scrollbar Aesthetics Test**: Check that the custom scrollbar starts below the header border, behaves smoothly, and changes opacity on hover.
-3. **Corner Alignment Test**: Verify the scrollbar track does not overlap or distort the rounded corners at the bottom of the modal.
+1. **Google Login / Signup**: Perform a full Google login, confirm successful account creation (or dynamic linking to a matching email), and verify the user session.
+2. **Email OTP Verification**: Trigger signup and setting change OTPs. Check that an actual email is received (or check console logs if SMTP variables are not set, confirming the fallback logs correctly).
+3. **Carousel Smoothness**: Hover over cards on a desktop. Verify the 0.7s glide transition and full auto-collapse of inactive siblings. Verify all cards collapse when leaving the section.
+4. **Receipt PDF printing**: Verify Ctrl+P prints a clean, single-page receipt.
+5. **Dashboard Settings**: Open the Settings tab; confirm it loads statically and instantly.

@@ -11,17 +11,17 @@ export default function HeroSection({ content }) {
       </div>
 
       <div className="hero__container container">
-        <div className="hero__badge animate-fade-in-up">
+        <div className="hero__badge">
           <span className="hero__badge-dot" />
           Monthly Donation Program
         </div>
-        <h1 className="hero__title animate-fade-in-up animate-delay-1">
+        <h1 className="hero__title">
           {content?.head || 'Empower Communities, Transform Lives'}
         </h1>
-        <p className="hero__subtitle animate-fade-in-up animate-delay-2">
+        <p className="hero__subtitle">
           {content?.subtitle || 'Your monthly donation creates lasting impact through sustainable projects'}
         </p>
-        <div className="hero__actions animate-fade-in-up animate-delay-3">
+        <div className="hero__actions">
           <a href="#donate" className="hero__cta">
             Start Donating
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

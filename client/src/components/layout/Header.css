@@ -70,8 +70,22 @@
   background: var(--color-bg-glass);
 }
 
+.header__nav-link--cta {
+  background: var(--color-accent-gradient);
+  color: white !important;
+  font-weight: 600;
+}
+
+.header__nav-link--cta:hover {
+  background: #5c94f7 !important;
+  color: white !important;
+  box-shadow: var(--shadow-glow-accent);
+  transform: translateY(-1px);
+}
+
 @media (max-width: 768px) {
   .header__logo-subtitle {
     display: none;
   }
 }
+
