@@ -1,10 +1,9 @@
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma.js';
 import { z } from 'zod';
 import { upsertStripeCustomer, createStripeSubscription, listActiveSubscriptions, stripe, isMockMode } from '../services/stripe.js';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // ── Zod validation schema ──
 // Client sends `amount` in DOLLARS. Backend converts to cents before Stripe calls.

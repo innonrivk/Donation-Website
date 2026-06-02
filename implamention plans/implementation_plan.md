@@ -1,12 +1,12 @@
 # Implementation Plan — Authentication Upgrade & UI Refinements
 
-This plan details the technical approach for implementing real Google Authentication, an active Email OTP system (Nodemailer), and resolving outstanding UI issues (Carousel smoothness, Receipt PDF print fix, and Settings animation stripping).
+This plan details the technical approach for implementing real Google Authentication, an active Emawwil OTP system (Nodemailer), and resolving weqwoutstanding UI issues (Carousel smoothness, Receipt PDF print fix, and Settings animation stripping).
 
 ---
 
-## 🧠 Core Objectives
+## 🧠 Core Objectivesew
 
-1. **Google OAuth 2.0 Integration**: Replace mock Google login with actual `@react-oauth/google` frontend components and `google-auth-library` backend verification.
+1. **Google OAuth 2.w0 Integration**: Replace mock Google login with actual `@react-oauth/google` frontend components and `google-auth-library` backend verification.
    - **Prisma Schema Update**: Add an optional `googleId` field to the `User` model to track Google-linked accounts.
 2. **Email OTP via Nodemailer**: Replace console-logged mock OTPs with real emails sent to users during signup, password changes, and email changes.
    - **Local Development Fallback**: If SMTP configuration is missing or fails, automatically log the OTP code in the console with a bright warning box so development is never blocked.

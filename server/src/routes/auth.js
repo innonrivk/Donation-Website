@@ -1,16 +1,15 @@
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma.js';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { z } from 'zod';
-import nodemailer from 'nodemailer';
+
 import { OAuth2Client } from 'google-auth-library';
 import { requireAuth, issueTokenCookie } from '../middleware/auth.js';
 import { stripe, isMockMode, listActiveSubscriptions } from '../services/stripe.js';
-
+import { sendEmail } from '../services/email.js';
 
 const router = Router();
-const prisma = new PrismaClient();
 const SALT_ROUNDS = 12;
 const OTP_EXPIRY_MINUTES = 15;
 const MAX_OTP_ATTEMPTS = 5;
@@ -42,15 +41,7 @@ function generateOtp() {
   return crypto.randomInt(100000, 999999).toString();
 }
 
-async function sendOtpEmail(email, otp, purpose, newEmail = null) {
-  const smtpHost = process.env.SMTP_HOST;
-  const smtpPort = process.env.SMTP_PORT;
-  const smtpUser = process.env.SMTP_USER;
-  const smtpPass = process.env.SMTP_PASS;
-  const smtpFrom = process.env.SMTP_FROM || 'noreply@openmindprojects.org';
-
-  const isSmtpConfigured = smtpHost && smtpPort && smtpUser && smtpPass;
-
+async function sendOtpEmailWrapper(email, otp, purpose, newEmail = null) {
   let subject = 'OMP Donation Site Verification Code';
   let title = 'Your Verification Code';
   let messageText = `Your code is ${otp}. It is valid for 15 minutes.`;
@@ -73,71 +64,13 @@ async function sendOtpEmail(email, otp, purpose, newEmail = null) {
     messageText = `An account deletion request was triggered. Your verification code is ${otp}. It is valid for 15 minutes. This action is permanent.`;
   }
 
-  const htmlContent = `
-    <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 30px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-      <div style="text-align: center; margin-bottom: 24px;">
-        <img src="https://openmindprojects.org/wp-content/uploads/2021/04/omp-logo.png" alt="OMP Logo" style="height: 48px; width: auto;" />
-      </div>
-      <h2 style="font-size: 20px; font-weight: 700; color: #1a202c; text-align: center; margin-top: 0; margin-bottom: 12px;">${title}</h2>
-      <p style="font-size: 14px; color: #4a5568; line-height: 1.6; text-align: center; margin-bottom: 24px;">${messageText}</p>
-      <div style="text-align: center; margin-bottom: 28px;">
-        <span style="display: inline-block; font-family: monospace; font-size: 32px; font-weight: 700; color: #3182ce; background-color: #ebf8ff; padding: 12px 28px; border-radius: 8px; letter-spacing: 0.1em; border: 1px dashed #bee3f8;">${otp}</span>
-      </div>
-      <p style="font-size: 12px; color: #a0aec0; text-align: center; line-height: 1.5; margin: 0;">
-        If you did not make this request, please ignore this email.<br />
-        &copy; ${new Date().getFullYear()} OpenmindProjects. All rights reserved.
-      </p>
-    </div>
-  `;
-
-  if (isSmtpConfigured && smtpHost !== 'smtp.mailtrap.io' && smtpUser !== 'your-smtp-user') {
-    try {
-      const transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port: parseInt(smtpPort, 10),
-        secure: parseInt(smtpPort, 10) === 465,
-        auth: {
-          user: smtpUser,
-          pass: smtpPass,
-        },
-      });
-
-      await transporter.sendMail({
-        from: `"OpenmindProjects" <${smtpFrom}>`,
-        to: newEmail || email,
-        subject,
-        text: messageText,
-        html: htmlContent,
-      });
-
-      console.log(`\n📧 [EMAIL SUCCESS] Real SMTP email dispatched successfully to ${newEmail || email}.\n`);
-      return true;
-    } catch (err) {
-      console.error(`\n❌ [SMTP ERROR] Failed to send real email to ${newEmail || email}:`, err.message);
-      // Fall through to console fallback
-    }
-  }
-
-  // Fallback console logging (with warning box)
-  const borderChar = '═';
-  const width = 64;
-  const printLine = (text, colorCode = '33') => {
-    const spaces = width - text.length - 4;
-    console.log(`\x1b[${colorCode}m║ \x1b[0m${text}${ ' '.repeat(spaces) }\x1b[${colorCode}m ║\x1b[0m`);
-  };
-
-  console.log(`\n\x1b[33m╔${borderChar.repeat(width - 2)}╗\x1b[0m`);
-  printLine('⚠️  DEVELOPMENT FALLBACK LOGGED OTP CODE', '33');
-  printLine('─'.repeat(width - 4), '33');
-  printLine(`To:      ${newEmail || email}`);
-  printLine(`Purpose: ${purpose}`);
-  printLine(`Code:    \x1b[32m\x1b[1m${otp}\x1b[0m`);
-  printLine('─'.repeat(width - 4), '33');
-  printLine('Configure SMTP_HOST/SMTP_USER/SMTP_PASS in server/.env', '90');
-  printLine('to enable actual email dispatch.', '90');
-  console.log(`\x1b[33m╚${borderChar.repeat(width - 2)}╝\x1b[0m\n`);
-
-  return false;
+  return sendEmail({
+    to: newEmail || email,
+    subject,
+    title,
+    messageText,
+    otp,
+  });
 }
 
 async function createAndStoreOtp(email, purpose, newEmail = null) {
@@ -157,8 +90,8 @@ async function createAndStoreOtp(email, purpose, newEmail = null) {
     },
   });
 
-  // Send the OTP via real Nodemailer email with console fallback
-  await sendOtpEmail(email, plainOtp, purpose, newEmail);
+  // Send the OTP via SendGrid with console fallback
+  await sendOtpEmailWrapper(email, plainOtp, purpose, newEmail);
 
   return plainOtp;
 }

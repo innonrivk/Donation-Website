@@ -1,6 +1,6 @@
+import './lib/env.js';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import contentRoutes from './routes/content.js';
@@ -9,8 +9,6 @@ import webhookRoutes from './routes/webhooks.js';
 import authRoutes from './routes/auth.js';
 import subscriptionRoutes from './routes/subscriptions.js';
 import milestoneRoutes from './routes/milestones.js';
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;

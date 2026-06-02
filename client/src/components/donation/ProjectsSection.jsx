@@ -14,6 +14,7 @@ export default function ProjectsSection({ projects }) {
   const [visibleCount, setVisibleCount] = useState(3);
   const [isHovered, setIsHovered] = useState(false);
   const isPausedRef = useRef(false);
+  const hoverTimeoutRef = useRef(null);
 
   // Fallback check
   if (!projects || projects.length === 0) return null;
@@ -71,13 +72,28 @@ export default function ProjectsSection({ projects }) {
   const handleMouseEnterCard = (id) => {
     const isDesktop = window.matchMedia('(hover: hover)').matches;
     if (isDesktop) {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+        hoverTimeoutRef.current = null;
+      }
       setExpandedId(id);
     }
   };
 
   const handleMouseLeaveCard = () => {
-    // No-op on card leave to prevent layout jumping/flickers when transitioning between cards.
-    // Collapsing is handled section-wide on mouse leave instead.
+    const isDesktop = window.matchMedia('(hover: hover)').matches;
+    if (isDesktop) {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+      hoverTimeoutRef.current = setTimeout(() => {
+        setExpandedId((currentExpanded) => {
+          // Ensure we don't close if they've hovered back in or clicked
+          return currentExpanded ? null : currentExpanded;
+        });
+        hoverTimeoutRef.current = null;
+      }, 3000);
+    }
   };
 
   /**
@@ -105,9 +121,16 @@ export default function ProjectsSection({ projects }) {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {
         setIsHovered(false);
+        // Section-level leave: close faster (1s) vs card-level leave (3s)
         const isDesktop = window.matchMedia('(hover: hover)').matches;
         if (isDesktop) {
-          setExpandedId(null);
+          if (hoverTimeoutRef.current) {
+            clearTimeout(hoverTimeoutRef.current);
+          }
+          hoverTimeoutRef.current = setTimeout(() => {
+            setExpandedId(null);
+            hoverTimeoutRef.current = null;
+          }, 1000);
         }
       }}
     >
@@ -156,6 +179,7 @@ export default function ProjectsSection({ projects }) {
                   onToggle={() => handleToggleExpand(project.id)}
                   onMouseEnter={() => handleMouseEnterCard(project.id)}
                   onMouseLeave={handleMouseLeaveCard}
+                  hoverTimeoutRef={hoverTimeoutRef}
                 />
               );
             })}
@@ -206,6 +230,7 @@ function ProjectCard({
   onToggle,
   onMouseEnter,
   onMouseLeave,
+  hoverTimeoutRef,
 }) {
   const detailsRef = useRef(null);
 
@@ -250,6 +275,11 @@ function ProjectCard({
         className="project-card__expand-btn"
         onClick={(e) => {
           e.stopPropagation();
+          // Cancel any pending hover timer before toggling — prevents state flicker
+          if (hoverTimeoutRef?.current) {
+            clearTimeout(hoverTimeoutRef.current);
+            hoverTimeoutRef.current = null;
+          }
           onToggle();
         }}
         onKeyDown={handleKeyDown}

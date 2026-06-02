@@ -1,13 +1,10 @@
 import { Router } from 'express';
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma.js';
 import Stripe from 'stripe';
-import dotenv from 'dotenv';
-
-dotenv.config();
+import { sendEmail } from '../services/email.js';
 
 const router = Router();
-const prisma = new PrismaClient();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // POST /api/v1/webhooks/stripe
@@ -62,6 +59,19 @@ router.post(
             });
 
             console.log(`✅ Payment recorded: $${(amountPaid / 100).toFixed(2)} from ${user.email}`);
+
+            // Send Donation Receipt
+            await sendEmail({
+              to: user.email,
+              subject: 'Your Donation Receipt - OpenmindProjects',
+              title: 'Thank You for Your Donation!',
+              messageText: `Your generous donation helps us continue our mission. Below are the details of your recent transaction.`,
+              receiptData: {
+                amount: amountPaid,
+                transactionId: invoice.id,
+                date: new Date().toISOString(),
+              }
+            });
           } else {
             console.warn(`⚠️  No user found for Stripe customer: ${customerId}`);
           }

@@ -5,9 +5,17 @@
   "main": "index.js",
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix client\" \"npm run dev --prefix server\"",
-    "install:all": "npm install && npm install --prefix client && npm install --prefix server"
+    "install:all": "npm install && npm install --prefix client && npm install --prefix server",
+    "db:generate": "npx --prefix server prisma generate --schema=server/prisma/schema.prisma",
+    "db:push": "npx --prefix server prisma db push --schema=server/prisma/schema.prisma",
+    "db:seed": "node --env-file=.env server/prisma/seed.js",
+    "db:studio": "npx --prefix server prisma studio --schema=server/prisma/schema.prisma",
+    "db:setup": "npm run db:push && npm run db:seed"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
+  },
+  "dependencies": {
+    "@sendgrid/mail": "^8.1.6"
   }
 }
