@@ -60,18 +60,58 @@ router.post(
 
             console.log(`✅ Payment recorded: $${(amountPaid / 100).toFixed(2)} from ${user.email}`);
 
-            // Send Donation Receipt
-            await sendEmail({
-              to: user.email,
-              subject: 'Your Donation Receipt - OpenmindProjects',
-              title: 'Thank You for Your Donation!',
-              messageText: `Your generous donation helps us continue our mission. Below are the details of your recent transaction.`,
-              receiptData: {
-                amount: amountPaid,
-                transactionId: invoice.id,
-                date: new Date().toISOString(),
+            // Acknowledge payment recorded instantly, dispatching receipt and PDF generation in background
+            // to ensure strict Stripe HTTP webhook response times under 2 seconds.
+            setTimeout(async () => {
+              try {
+                // Resolve the donor's active tier dynamically using monthlyAmount (already in dollars) or amountPaid (in cents)
+                const amountDollars = user.monthlyAmount ? user.monthlyAmount : Math.floor(amountPaid / 100);
+                let tierName = 'Supporter';
+                let tierPerks = [];
+
+                try {
+                  const tier = await prisma.tier.findFirst({
+                    where: {
+                      minAmount: { lte: amountDollars },
+                      OR: [
+                        { maxAmount: null },
+                        { maxAmount: { gte: amountDollars } },
+                      ],
+                    },
+                    orderBy: { tierLevel: 'desc' },
+                  });
+
+                  if (tier) {
+                    tierName = tier.name;
+                    tierPerks = Array.isArray(tier.perks) ? tier.perks : JSON.parse(tier.perks || '[]');
+                  }
+                } catch (tierErr) {
+                  console.error('Failed to resolve tier for Stripe webhook receipt:', tierErr.message);
+                }
+
+                const donorName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Valued Donor';
+
+                // Send Donation Receipt
+                await sendEmail({
+                  to: user.email,
+                  subject: 'Thank you for your donation — Official OMP Receipt 🎉',
+                  title: 'Donation Receipt',
+                  messageText: `Hi ${user.firstName || 'Donor'}, thank you for your generous support of $${(amountPaid / 100).toFixed(2)}. Your contribution goes directly towards our active projects.`,
+                  receiptData: {
+                    amount: amountPaid,
+                    transactionId: invoice.id,
+                    date: new Date().toISOString(),
+                    donorName,
+                    donorEmail: user.email,
+                    country: user.country || 'Not specified',
+                    tierName,
+                    tierPerks,
+                  }
+                });
+              } catch (bgErr) {
+                console.error('❌ Background webhook email dispatch failed:', bgErr.message);
               }
-            });
+            }, 50);
           } else {
             console.warn(`⚠️  No user found for Stripe customer: ${customerId}`);
           }

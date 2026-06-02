@@ -369,6 +369,7 @@ export async function sendEmail({ to, subject, title, messageText, otp = null, r
         error: err.message,
       }) + '\n'
     );
+    sentSuccessfully = false;
   }
 
   // ── Development Fallback ────────────────────────────────────────────────────

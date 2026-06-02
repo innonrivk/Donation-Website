@@ -73,6 +73,18 @@ async function sendOtpEmailWrapper(email, otp, purpose, newEmail = null) {
   });
 }
 
+/**
+ * Generates, hashes, stores, and dispatches a verification OTP code.
+ * 
+ * Why does it return void instead of the plaintext OTP?
+ * To prevent developer-convenience code-path bypasses from leaking plaintext OTP values
+ * to HTTP/API contexts, ensuring strict adherence to secure zero-trust verification patterns.
+ * 
+ * @param {string} email - The target recipient email.
+ * @param {string} purpose - The use-case ('REGISTRATION', 'PASSWORD_CHANGE', etc.).
+ * @param {string|null} [newEmail] - The prospective new email if changing emails.
+ * @returns {Promise<void>}
+ */
 async function createAndStoreOtp(email, purpose, newEmail = null) {
   // Delete any existing OTPs for this email + purpose
   await prisma.userOtp.deleteMany({ where: { email, purpose } });
@@ -92,8 +104,6 @@ async function createAndStoreOtp(email, purpose, newEmail = null) {
 
   // Send the OTP via SendGrid with console fallback
   await sendOtpEmailWrapper(email, plainOtp, purpose, newEmail);
-
-  return plainOtp;
 }
 
 // ────────────────────────────────────────────────────────
@@ -125,12 +135,11 @@ router.post('/signup', async (req, res, next) => {
 
     if (existingUser && !existingUser.password) {
       // Shadow account — trigger OTP claim flow
-      const plainOtp = await createAndStoreOtp(email, 'REGISTRATION');
+      await createAndStoreOtp(email, 'REGISTRATION');
       return res.status(200).json({
         status: 'OTP_REQUIRED',
         message: 'A verification code has been sent to your email.',
         email,
-        ...(process.env.NODE_ENV !== 'production' && { devOtp: plainOtp }),
       });
     }
 
@@ -518,11 +527,10 @@ router.get('/me', requireAuth, async (req, res, next) => {
 // ────────────────────────────────────────────────────────
 router.post('/settings/password-otp', requireAuth, async (req, res, next) => {
   try {
-    const plainOtp = await createAndStoreOtp(req.user.email, 'PASSWORD_CHANGE');
+    await createAndStoreOtp(req.user.email, 'PASSWORD_CHANGE');
     return res.status(200).json({
       status: 'OTP_SENT',
       message: 'Verification code sent to your email.',
-      ...(process.env.NODE_ENV !== 'production' && { devOtp: plainOtp }),
     });
   } catch (error) {
     next(error);
@@ -605,11 +613,10 @@ router.post('/settings/email-otp', requireAuth, async (req, res, next) => {
       return res.status(409).json({ error: 'email_taken', message: 'This email is already in use.' });
     }
 
-    const plainOtp = await createAndStoreOtp(req.user.email, 'EMAIL_CHANGE', newEmail);
+    await createAndStoreOtp(req.user.email, 'EMAIL_CHANGE', newEmail);
     return res.status(200).json({
       status: 'OTP_SENT',
       message: 'Verification code sent to the new email.',
-      ...(process.env.NODE_ENV !== 'production' && { devOtp: plainOtp }),
     });
   } catch (error) {
     next(error);
@@ -723,11 +730,10 @@ router.post('/settings/change-name', requireAuth, async (req, res, next) => {
 // ────────────────────────────────────────────────────────
 router.post('/settings/delete-otp', requireAuth, async (req, res, next) => {
   try {
-    const plainOtp = await createAndStoreOtp(req.user.email, 'ACCOUNT_DELETE');
+    await createAndStoreOtp(req.user.email, 'ACCOUNT_DELETE');
     return res.status(200).json({
       status: 'OTP_SENT',
       message: 'Verification code sent to your email.',
-      ...(process.env.NODE_ENV !== 'production' && { devOtp: plainOtp }),
     });
   } catch (error) {
     next(error);

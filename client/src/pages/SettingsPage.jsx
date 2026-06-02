@@ -22,7 +22,6 @@ export default function SettingsPage() {
   const [pwConfirm, setPwConfirm] = useState('');
   const [pwLoading, setPwLoading] = useState(false);
   const [pwMsg, setPwMsg] = useState({ type: '', text: '' });
-  const [devPwOtp, setDevPwOtp] = useState('');
 
   // ── Email ──
   const [emStep, setEmStep] = useState('idle');
@@ -30,14 +29,12 @@ export default function SettingsPage() {
   const [emOtp, setEmOtp] = useState('');
   const [emLoading, setEmLoading] = useState(false);
   const [emMsg, setEmMsg] = useState({ type: '', text: '' });
-  const [devEmOtp, setDevEmOtp] = useState('');
 
   // ── Danger Zone (Cancel/Delete) ──
   const [deleteStep, setDeleteStep] = useState('idle'); // idle → otp_sent
   const [deleteOtp, setDeleteOtp] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteMsg, setDeleteMsg] = useState({ type: '', text: '' });
-  const [devDeleteOtp, setDevDeleteOtp] = useState('');
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelMsg, setCancelMsg] = useState({ type: '', text: '' });
 
@@ -72,14 +69,10 @@ export default function SettingsPage() {
   const handleRequestPwOtp = async () => {
     setPwLoading(true);
     setPwMsg({ type: '', text: '' });
-    setDevPwOtp('');
     try {
-      const result = await api.requestPasswordOtp();
+      await api.requestPasswordOtp();
       setPwStep('otp_sent');
       setPwMsg({ type: 'success', text: 'Verification code sent to your email.' });
-      if (result.devOtp) {
-        setDevPwOtp(result.devOtp);
-      }
     } catch (err) {
       setPwMsg({ type: 'error', text: err.message });
     } finally {
@@ -106,7 +99,6 @@ export default function SettingsPage() {
       setPwOtp('');
       setPwNew('');
       setPwConfirm('');
-      setDevPwOtp('');
     } catch (err) {
       setPwMsg({ type: 'error', text: err.message });
     } finally {
@@ -123,14 +115,10 @@ export default function SettingsPage() {
     }
     setEmLoading(true);
     setEmMsg({ type: '', text: '' });
-    setDevEmOtp('');
     try {
-      const result = await api.requestEmailOtp({ newEmail: emNew });
+      await api.requestEmailOtp({ newEmail: emNew });
       setEmStep('otp_sent');
       setEmMsg({ type: 'success', text: 'Verification code sent to the new email.' });
-      if (result.devOtp) {
-        setDevEmOtp(result.devOtp);
-      }
     } catch (err) {
       setEmMsg({ type: 'error', text: err.message });
     } finally {
@@ -138,12 +126,12 @@ export default function SettingsPage() {
     }
   };
 
-  const handleChangeEm = async (e, codeToUse = null) => {
+  const handleChangeEm = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     setEmLoading(true);
     setEmMsg({ type: '', text: '' });
     try {
-      const result = await api.changeEmail({ otp: codeToUse || emOtp });
+      const result = await api.changeEmail({ otp: emOtp });
       setEmMsg({ type: 'success', text: result.message });
       setEmStep('done');
       await refreshUser();
@@ -173,14 +161,10 @@ export default function SettingsPage() {
     if (!window.confirm('WARNING: Are you absolutely sure you want to delete your account? This will wipe your donations, milestones, and settings, and cannot be undone.')) return;
     setDeleteLoading(true);
     setDeleteMsg({ type: '', text: '' });
-    setDevDeleteOtp('');
     try {
-      const result = await api.requestDeleteOtp();
+      await api.requestDeleteOtp();
       setDeleteStep('otp_sent');
       setDeleteMsg({ type: 'success', text: 'Verification code sent to your email.' });
-      if (result.devOtp) {
-        setDevDeleteOtp(result.devOtp);
-      }
     } catch (err) {
       setDeleteMsg({ type: 'error', text: err.message });
     } finally {
@@ -296,37 +280,6 @@ export default function SettingsPage() {
 
               {pwStep === 'otp_sent' && (
                 <form onSubmit={handleChangePw} className="settings-form">
-                  {devPwOtp && (
-                    <div style={{
-                      padding: '10px 12px',
-                      background: 'rgba(66, 133, 244, 0.08)',
-                      border: '1px dashed var(--brand-blue)',
-                      borderRadius: '6px',
-                      marginBottom: '12px',
-                      fontSize: '13px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between'
-                    }}>
-                      <span>✨ [Dev Mode] Code: <strong>{devPwOtp}</strong></span>
-                      <button
-                        type="button"
-                        onClick={() => setPwOtp(devPwOtp)}
-                        style={{
-                          background: 'var(--color-accent-gradient)',
-                          color: 'white',
-                          border: 'none',
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          fontSize: '11px',
-                          fontWeight: '600',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Autofill
-                      </button>
-                    </div>
-                  )}
                   <div className="auth-form__field">
                     <label htmlFor="pw-otp">Verification Code</label>
                     <input id="pw-otp" type="text" value={pwOtp} onChange={e => setPwOtp(e.target.value)} maxLength={6} placeholder="6-digit code" required />
@@ -386,40 +339,6 @@ export default function SettingsPage() {
               {emStep === 'otp_sent' && (
                 <form onSubmit={handleChangeEm} className="settings-form">
                   <p className="settings-info">Enter the code sent to <strong>{emNew}</strong></p>
-                  {devEmOtp && (
-                    <div style={{
-                      padding: '10px 12px',
-                      background: 'rgba(66, 133, 244, 0.08)',
-                      border: '1px dashed var(--brand-blue)',
-                      borderRadius: '6px',
-                      marginBottom: '12px',
-                      fontSize: '13px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between'
-                    }}>
-                      <span>✨ [Dev Mode] Code: <strong>{devEmOtp}</strong></span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEmOtp(devEmOtp);
-                          handleChangeEm(null, devEmOtp);
-                        }}
-                        style={{
-                          background: 'var(--color-accent-gradient)',
-                          color: 'white',
-                          border: 'none',
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          fontSize: '11px',
-                          fontWeight: '600',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Autofill & Submit
-                      </button>
-                    </div>
-                  )}
                   <div className="auth-form__field">
                     <label htmlFor="em-otp">Verification Code</label>
                     <input id="em-otp" type="text" value={emOtp} onChange={e => setEmOtp(e.target.value)} maxLength={6} placeholder="6-digit code" required />
@@ -499,39 +418,6 @@ export default function SettingsPage() {
 
                 {deleteStep === 'otp_sent' && (
                   <form onSubmit={handleDeleteAccount} className="settings-form" style={{ paddingTop: 0 }}>
-                    {devDeleteOtp && (
-                      <div style={{
-                        padding: '10px 12px',
-                        background: 'rgba(234, 67, 53, 0.08)',
-                        border: '1px dashed #ea4335',
-                        borderRadius: '6px',
-                        marginBottom: '12px',
-                        fontSize: '13px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between'
-                      }}>
-                        <span style={{ color: '#ea4335' }}>✨ [Dev Mode] Code: <strong>{devDeleteOtp}</strong></span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setDeleteOtp(devDeleteOtp);
-                          }}
-                          style={{
-                            background: '#ea4335',
-                            color: 'white',
-                            border: 'none',
-                            padding: '4px 8px',
-                            borderRadius: '4px',
-                            fontSize: '11px',
-                            fontWeight: '600',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          Autofill
-                        </button>
-                      </div>
-                    )}
                     <div className="auth-form__field">
                       <label htmlFor="del-otp">Verification Code</label>
                       <input

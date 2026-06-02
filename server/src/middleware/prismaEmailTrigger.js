@@ -81,8 +81,8 @@ export function withEmailTrigger(client) {
                   return;
                 }
 
-                // Resolve the donor's active tier from the Tier table using monthlyAmount (in dollars)
-                const amountDollars = Math.floor((user.monthlyAmount || result.amount) / 100);
+                // Resolve the donor's active tier from the Tier table using monthlyAmount (already in dollars) or result.amount (in cents)
+                const amountDollars = user.monthlyAmount ? user.monthlyAmount : Math.floor(result.amount / 100);
                 let tierName  = 'Supporter';
                 let tierPerks = [];
 
