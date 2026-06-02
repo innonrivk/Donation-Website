@@ -70,29 +70,61 @@ export function withEmailTrigger(client) {
               isMock: isMockTransaction 
             });
 
-            // Fetch user info asynchronously to keep database write non-blocking
-            // and wait 100ms to allow any active interactive transactions to commit!
+            // Fetch user + matching Tier asynchronously.
+            // 100ms delay ensures any interactive DB transaction has committed before read.
             setTimeout(() => {
               client.user.findUnique({
                 where: { id: result.userId }
-              }).then((user) => {
-                if (user && user.email) {
-                  sendEmail({
-                    to: user.email,
-                    subject: 'Thank you for your donation!',
-                    title: 'Donation Receipt',
-                    messageText: `Thank you for your generous support of $${(result.amount / 100).toFixed(2)}. Your contribution goes directly towards our active projects.`,
-                    receiptData: {
-                      amount: result.amount,
-                      transactionId: result.stripeInvoiceId || result.id,
-                      date: result.createdAt
-                    }
-                  }).catch((err) => {
-                    logger.error('TRANSACTION_RECEIPT_TRIGGER_FAILED', { error: err.message, transactionId: result.id });
-                  });
-                } else {
+              }).then(async (user) => {
+                if (!user || !user.email) {
                   logger.error('TRANSACTION_RECEIPT_USER_NOT_FOUND_OR_NO_EMAIL', { userId: result.userId, transactionId: result.id });
+                  return;
                 }
+
+                // Resolve the donor's active tier from the Tier table using monthlyAmount (in dollars)
+                const amountDollars = Math.floor((user.monthlyAmount || result.amount) / 100);
+                let tierName  = 'Supporter';
+                let tierPerks = [];
+
+                try {
+                  const tier = await client.tier.findFirst({
+                    where: {
+                      minAmount: { lte: amountDollars },
+                      OR: [
+                        { maxAmount: null },
+                        { maxAmount: { gte: amountDollars } },
+                      ],
+                    },
+                    orderBy: { tierLevel: 'desc' },
+                  });
+
+                  if (tier) {
+                    tierName  = tier.name;
+                    // perks is stored as a JSON array in SQLite
+                    tierPerks = Array.isArray(tier.perks) ? tier.perks : JSON.parse(tier.perks || '[]');
+                  }
+                } catch (tierErr) {
+                  logger.error('TRANSACTION_RECEIPT_TIER_FETCH_FAILED', { error: tierErr.message, userId: user.id });
+                }
+
+                sendEmail({
+                  to:          user.email,
+                  subject:     'Thank you for your donation — Official OMP Receipt 🎉',
+                  title:       'Donation Receipt',
+                  messageText: `Hi ${user.firstName || 'Donor'}, thank you for your generous support of $${(result.amount / 100).toFixed(2)}. Your contribution goes directly towards our active projects.`,
+                  receiptData: {
+                    amount:        result.amount,
+                    transactionId: result.stripeInvoiceId || result.id,
+                    date:          result.createdAt,
+                    donorName:     `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+                    donorEmail:    user.email,
+                    country:       user.country || 'Not specified',
+                    tierName,
+                    tierPerks,
+                  }
+                }).catch((err) => {
+                  logger.error('TRANSACTION_RECEIPT_TRIGGER_FAILED', { error: err.message, transactionId: result.id });
+                });
               }).catch((err) => {
                 logger.error('TRANSACTION_RECEIPT_USER_FETCH_FAILED', { error: err.message, transactionId: result.id });
               });
