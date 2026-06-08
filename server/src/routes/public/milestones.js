@@ -1,13 +1,13 @@
 import { Router } from 'express';
-import prisma from '../lib/prisma.js';
-import { requireAuth } from '../middleware/auth.js';
+import prisma from '../../lib/prismaPublic.js';
+import { requireAuth } from '../../middleware/auth.js';
 
 const router = Router();
 
-// ────────────────────────────────────────────────────────
-// POST /api/v1/milestones/claim
-// Write a ClaimedMilestone record for an unlocked milestone
-// ────────────────────────────────────────────────────────
+/**
+ * POST /api/v1/public/milestones/claim
+ * Write a ClaimedMilestone record for an unlocked milestone.
+ */
 router.post('/claim', requireAuth, async (req, res, next) => {
   try {
     const { milestoneId } = req.body;
@@ -38,14 +38,11 @@ router.post('/claim', requireAuth, async (req, res, next) => {
     }
 
     // Verify user has reached the required lifetime amount
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.userId },
-      include: { transactions: true },
+    const lifetimeTotalAgg = await prisma.transaction.aggregate({
+      where: { userId: req.user.userId, status: 'SUCCEEDED' },
+      _sum: { amount: true },
     });
-
-    const lifetimeTotalDollars = user.transactions
-      .filter(t => t.status === 'SUCCEEDED')
-      .reduce((sum, t) => sum + t.amount, 0) / 100;
+    const lifetimeTotalDollars = (lifetimeTotalAgg._sum.amount ?? 0) / 100;
 
     const requiredAmountDollars = milestone.isRepeatable
       ? (claimCount + 1) * milestone.amountUsd

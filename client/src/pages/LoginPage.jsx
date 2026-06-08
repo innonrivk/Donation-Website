@@ -12,7 +12,7 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showMockPanel, setShowMockPanel] = useState(false);
+
 
   const from = location.state?.from || '/dashboard';
 
@@ -49,23 +49,7 @@ export default function LoginPage() {
     }
   };
 
-  const handleMockGoogle = async (persona) => {
-    setLoading(true);
-    setError('');
-    try {
-      await googleLogin(persona);
-      navigate(from, { replace: true });
-    } catch (err) {
-      setError(err.message || 'Google login failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const mockPersonas = [
-    { label: 'New Google User', email: 'google.new@test.com', firstName: 'Google', lastName: 'User' },
-    { label: 'Shadow Donor (existing)', email: 'shadow.donor@test.com', firstName: 'Shadow', lastName: 'Donor' },
-  ];
 
   return (
     <div className="auth-page">
@@ -160,40 +144,8 @@ export default function LoginPage() {
             width="100%"
           />
           
-          <button
-            className="auth-card__mock-toggle-btn"
-            onClick={() => setShowMockPanel(!showMockPanel)}
-            type="button"
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--color-text-secondary)',
-              fontSize: '11px',
-              cursor: 'pointer',
-              textDecoration: 'underline',
-              opacity: 0.7,
-              marginTop: '4px'
-            }}
-          >
-            🧪 Toggle Local Dev Mock Panel
-          </button>
         </div>
 
-        {showMockPanel && (
-          <div className="auth-card__mock-panel animate-fade-in" style={{ width: '100%' }}>
-            <p className="auth-card__mock-label">🧪 Dev Mock (Offline fallback):</p>
-            {mockPersonas.map((p, i) => (
-              <button
-                key={i}
-                className="auth-card__mock-btn"
-                onClick={() => handleMockGoogle(p)}
-                disabled={loading}
-              >
-                {p.label} ({p.email})
-              </button>
-            ))}
-          </div>
-        )}
 
         <p className="auth-card__footer">
           Don't have an account?{' '}

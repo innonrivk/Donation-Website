@@ -4,7 +4,7 @@ import Input from '../ui/Input';
 import Button from '../ui/Button';
 import DonationReceipt from '../donation/DonationReceipt';
 import { useAuth } from '../../context/AuthContext';
-import { createSubscription } from '../../services/api';
+import { createSubscription, createOneTimeDonation } from '../../services/api';
 import COUNTRIES from '../../utils/countries';
 
 /**
@@ -29,7 +29,7 @@ function getFriendlyError(errorCode, fallbackMessage) {
   return fallbackMessage || 'Something went wrong. Please try again.';
 }
 
-export default function StripeForm({ amount, onClose }) {
+export default function StripeForm({ amount, onClose, isRecurring = true }) {
   const stripe = useStripe();
   const elements = useElements();
 
@@ -163,7 +163,7 @@ export default function StripeForm({ amount, onClose }) {
 
     console.log(...styleTrace("┌── 💳 [FRONTEND] Checkout Form Submitted", true));
     console.log(...styleTrace(`├── Form Data: ${formData.firstName} ${formData.lastName} (${formData.email})`));
-    console.log(...styleTrace(`├── Amount: $${amount}/month`));
+    console.log(...styleTrace(`├── Amount: $${amount}${isRecurring ? '/month' : ' (one-time)'}`));
 
     try {
       let paymentMethodId = 'pm_mock_123';
@@ -192,15 +192,23 @@ export default function StripeForm({ amount, onClose }) {
       }
 
       // ── Step 2: Send tokenised PM to backend ──
-      console.log(...styleTrace("├── 🌐 Dispatching POST /api/v1/donations/subscribe..."));
-      const result = await createSubscription({
+      const checkoutPayload = {
         email: formData.email,
         firstName: formData.firstName,
         lastName: formData.lastName,
         country: formData.country,
         paymentMethodId: paymentMethodId,
         amount: amount,
-      });
+      };
+
+      let result;
+      if (isRecurring) {
+        console.log(...styleTrace("├── 🌐 Dispatching POST /api/v1/donations/subscribe..."));
+        result = await createSubscription(checkoutPayload);
+      } else {
+        console.log(...styleTrace("├── 🌐 Dispatching POST /api/v1/donations/one-time..."));
+        result = await createOneTimeDonation(checkoutPayload);
+      }
       console.log(...styleTrace(`├── 🌐 Backend responded successfully: status = ${result.status}`));
 
       // ── Step 3: Handle SCA / 3D Secure if required ──
@@ -269,7 +277,11 @@ export default function StripeForm({ amount, onClose }) {
 
         <h3 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-text-primary)', marginBottom: '4px' }}>Thank You! 🎉</h3>
         <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginBottom: '14px' }}>
-          Your monthly donation of <strong>${amount}/mo</strong> has been set up successfully.
+          {isRecurring ? (
+            <>Your monthly donation of <strong>${amount}/mo</strong> has been set up successfully.</>
+          ) : (
+            <>Your one-time donation of <strong>${amount}</strong> has been processed successfully.</>
+          )}
         </p>
 
         <DonationReceipt
@@ -279,10 +291,11 @@ export default function StripeForm({ amount, onClose }) {
           donorName={`${formData.firstName} ${formData.lastName}`}
           donorEmail={formData.email}
           country={formData.country}
-          tierName={tierName}
-          tierPerks={tierPerks}
+          tierName={isRecurring ? tierName : 'One-Time Supporter'}
+          tierPerks={isRecurring ? tierPerks : ['One-time support', 'Counted in milestones & total donation amount']}
           showPrintButton={true}
           onClose={onClose}
+          isRecurring={isRecurring}
         />
       </div>
     );
@@ -485,7 +498,7 @@ export default function StripeForm({ amount, onClose }) {
         disabled={(!isMockStripe && (!stripe || !elements)) || loading || !infoVerified}
         className="print-hide"
       >
-        Donate ${amount}/month
+        Donate ${amount}{isRecurring ? '/month' : ''}
       </Button>
 
       <div className="checkout-form__secure">

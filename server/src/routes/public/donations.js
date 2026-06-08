@@ -1,7 +1,8 @@
 import { Router } from 'express';
-import prisma from '../lib/prisma.js';
+import prisma from '../../lib/prismaPublic.js';
 import { z } from 'zod';
-import { upsertStripeCustomer, createStripeSubscription, listActiveSubscriptions, stripe, isMockMode } from '../services/stripe.js';
+import { upsertStripeCustomer, createStripeSubscription, listActiveSubscriptions, stripe, isMockMode } from '../../services/stripe.js';
+import { createOneTimeDonation } from '../../controllers/public/oneTimeController.js';
 
 const router = Router();
 
@@ -16,7 +17,7 @@ const SubscribeSchema = z.object({
   amount:          z.number().int().min(1, 'Minimum donation is $1'), // dollars
 });
 
-// POST /api/v1/donations/subscribe
+// POST /api/v1/public/donations/subscribe
 // Securely creates a Stripe subscription — all Stripe calls happen server-side.
 router.post('/subscribe', async (req, res, next) => {
   try {
@@ -41,7 +42,6 @@ router.post('/subscribe', async (req, res, next) => {
     console.log(`├── 🔎 [BACKEND] Validation succeeded for: \x1b[36m${email}\x1b[0m (Amount: $${amount}/mo)`);
 
     // ── 2. Upsert Stripe customer (create or reuse) ──
-    // Check if user already exists in our DB
     let user = await prisma.user.findUnique({ where: { email } });
     const existingCustomerId = user?.stripeCustomerId || undefined;
     console.log(`├── 👤 [BACKEND] Checking existing customer (Stripe Customer ID: \x1b[33m${existingCustomerId || 'None'}\x1b[0m)`);
@@ -54,7 +54,6 @@ router.post('/subscribe', async (req, res, next) => {
     });
 
     // ── 3. Duplicate-subscription guard ──
-    // Check for an existing active subscription at the exact same amount
     const activeSubs = await listActiveSubscriptions(customer.id);
     const duplicate = activeSubs.find((sub) => {
       const item = sub.items?.data?.[0];
@@ -96,7 +95,6 @@ router.post('/subscribe', async (req, res, next) => {
     console.log("├── 💾 [BACKEND] Executing database transaction to upsert User and record Transaction...");
     try {
       await prisma.$transaction(async (tx) => {
-        // Create or update user
         user = await tx.user.upsert({
           where: { email },
           create: {
@@ -114,6 +112,8 @@ router.post('/subscribe', async (req, res, next) => {
             country,
             stripeCustomerId: customer.id,
             monthlyAmount: amount,
+            scheduledAmount: null,
+            scheduledAmountEffectiveDate: null,
           },
         });
 
@@ -174,7 +174,6 @@ router.post('/subscribe', async (req, res, next) => {
   } catch (error) {
     console.error('Subscription error:', error);
 
-    // Stripe-specific card errors → 402 with user-facing message
     if (error.type === 'StripeCardError') {
       return res.status(402).json({
         error: error.code || 'card_error',
@@ -183,7 +182,6 @@ router.post('/subscribe', async (req, res, next) => {
       });
     }
 
-    // Stripe invalid request (bad PM id, etc.)
     if (error.type === 'StripeInvalidRequestError') {
       return res.status(400).json({
         error: 'invalid_request',
@@ -195,5 +193,7 @@ router.post('/subscribe', async (req, res, next) => {
     next(error);
   }
 });
+
+router.post('/one-time', createOneTimeDonation);
 
 export default router;

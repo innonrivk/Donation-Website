@@ -22,7 +22,7 @@ export default function DonationGrid({ boxes, onDonate }) {
         <div className="donation-section__header">
           <span className="donation-section__label">Make an Impact</span>
           <h2 className="donation-section__title">
-            Choose Your <span className="gradient-text">Monthly Donation</span>
+            Choose Your <span className="gradient-text">Donation</span>
           </h2>
           <p className="donation-section__desc">
             Select a plan that works for you. Every contribution, big or small, helps fund
@@ -35,8 +35,21 @@ export default function DonationGrid({ boxes, onDonate }) {
 
         <div className="donation-grid">
           {/* Custom amount card spans first column */}
-          <div className="donation-grid__custom">
-            <CustomAmountCard onDonate={onDonate} />
+          <div className="donation-grid__custom" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <CustomAmountCard
+              onDonate={(amount) => onDonate(amount, false)}
+              isRecurring={false}
+              title="One-Time Donation"
+              desc="Choose your own one-time donation amount"
+              presetAmounts={[10, 25, 50, 100]}
+            />
+            <CustomAmountCard
+              onDonate={(amount) => onDonate(amount, true)}
+              isRecurring={true}
+              title="Monthly Donation"
+              desc="Choose your own monthly donation amount"
+              presetAmounts={[5, 15, 35, 75]}
+            />
           </div>
 
           {/* Fixed amount cards */}

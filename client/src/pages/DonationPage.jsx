@@ -22,6 +22,7 @@ export default function DonationPage() {
   const [error, setError] = useState(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState(null);
+  const [isRecurring, setIsRecurring] = useState(true);
 
   useEffect(() => {
     async function fetchContent() {
@@ -51,8 +52,9 @@ export default function DonationPage() {
    * Triggers the Checkout/Subscription modal.
    * @param {number} amount - Amount in USD.
    */
-  const handleDonate = (amount) => {
+  const handleDonate = (amount, recurring = true) => {
     setSelectedAmount(amount);
+    setIsRecurring(recurring);
     setCheckoutOpen(true);
   };
 
@@ -115,6 +117,7 @@ export default function DonationPage() {
         isOpen={checkoutOpen}
         onClose={handleCloseCheckout}
         amount={selectedAmount}
+        isRecurring={isRecurring}
       />
 
       <Footer />

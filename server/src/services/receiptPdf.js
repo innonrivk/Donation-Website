@@ -107,26 +107,7 @@ export async function generateReceiptPdf(opts) {
     // ── 2. Background Elements (Watermark drawn first to sit at the bottom layer) ──
     drawWatermark(doc, PAGE_WIDTH, PAGE_HEIGHT, fonts.bold);
 
-    // ── 3. Double-Border Card Container (Drawn before text elements to layer underneath) ──
-    const cardX = PAGE_MARGIN - 8;
-    const cardY = PAGE_MARGIN + 12;
-    const cardW = CONTENT_W + 16;
-    
-    // Exact height calculation: top padding (12) + header (111) + spacer (16) 
-    // + pre-amount rows (140) + spacer (4) + amount (38) + spacer (4) + post-amount rows (28) 
-    // + bottom padding (16) = 369px.
-    const cardH = 369;
-
-    drawCardBorders(doc, cardX, cardY, cardW, cardH);
-
-    // ── 4. Card Content Render & Assembly ──
-    let currentY = cardY + 12;
-
-    // A. Logo & Rotated Header Stamp
-    const logoPath = path.resolve(__dirname, '../../../client/public/omp-logo.png');
-    currentY = drawHeader(doc, cardX, currentY, cardW, logoPath, fonts);
-
-    // B. Metadata Table Part 1 (Rows 1-5, matching website order exactly)
+    // ── 3. Define Card Content Rows ──
     const preAmountRows = [
       ['Receipt Number:',   transactionId, true,  true,  false], // zebra=true, mono=true,  tier=false
       ['Transaction Date:', dateFormatted, false, false, false], // zebra=false, mono=false, tier=false
@@ -134,6 +115,35 @@ export async function generateReceiptPdf(opts) {
       ['Donor Email:',      donorEmail,    false, false, false], // zebra=false, mono=false, tier=false
       ['Country:',          country,       true,  false, false]  // zebra=true, mono=false, tier=false
     ];
+
+    const postAmountRows = [
+      ['Subscription Tier:', tierName, true, false, true] // zebra=true, mono=false, tier=true (star rendered safely)
+    ];
+
+    // ── 4. Dynamic Height Calculation for Card Container ──
+    // Why dynamic? To prevent visual overflows or excessive empty space if metadata rows scale or change.
+    const headerHeight = 86 + 12; // 86 (header elements) + 12 (top padding)
+    const preAmountHeight = preAmountRows.length * 28;
+    const amountHeight = 38 + 8; // 38 (highlight block) + 8 (spacers)
+    const postAmountHeight = postAmountRows.length * 28;
+    const bottomPadding = 16;
+    const cardH = headerHeight + preAmountHeight + amountHeight + postAmountHeight + bottomPadding;
+
+    const cardX = PAGE_MARGIN - 8;
+    const cardY = PAGE_MARGIN + 12;
+    const cardW = CONTENT_W + 16;
+
+    // Draw borders before rendering content so borders lay in the background
+    drawCardBorders(doc, cardX, cardY, cardW, cardH);
+
+    // ── 5. Card Content Render & Assembly ──
+    let currentY = cardY + 12;
+
+    // A. Logo & Rotated Header Stamp
+    const logoPath = path.resolve(__dirname, '../../../client/public/omp-logo.png');
+    currentY = drawHeader(doc, cardX, currentY, cardW, logoPath, fonts);
+
+    // B. Metadata Table Part 1 (Rows 1-5, matching website order exactly)
     currentY = drawMetadataRows(doc, cardX, currentY, cardW, preAmountRows, 28, 160, fonts);
     currentY += 4;
 
@@ -142,9 +152,6 @@ export async function generateReceiptPdf(opts) {
     currentY += 4;
 
     // D. Metadata Table Part 2 (Subscription Tier drawn after Amount row)
-    const postAmountRows = [
-      ['Subscription Tier:', tierName, true, false, true] // zebra=true, mono=false, tier=true (star rendered safely)
-    ];
     currentY = drawMetadataRows(doc, cardX, currentY, cardW, postAmountRows, 28, 160, fonts);
 
     // ── 5. Auxiliary Elements (Rendered dynamically outside the card) ──

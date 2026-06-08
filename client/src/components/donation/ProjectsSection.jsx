@@ -101,6 +101,7 @@ export default function ProjectsSection({ projects }) {
    */
   const handlePrev = () => {
     if (!isCarouselEnabled) return;
+    setExpandedId(null);
     setCurrentIndex((prev) => (prev - 1 + n) % n);
   };
 
@@ -109,6 +110,7 @@ export default function ProjectsSection({ projects }) {
    */
   const handleNext = () => {
     if (!isCarouselEnabled) return;
+    setExpandedId(null);
     setCurrentIndex((prev) => (prev + 1) % n);
   };
 

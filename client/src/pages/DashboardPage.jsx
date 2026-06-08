@@ -1,37 +1,49 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import DashboardNav from '../components/layout/DashboardNav';
-import CheckoutModal from '../components/checkout/CheckoutModal';
 import CustomAmountCard from '../components/donation/CustomAmountCard';
-import Modal from '../components/ui/Modal';
-import DonationReceipt from '../components/donation/DonationReceipt';
 import UserSummaryCard from '../components/dashboard/UserSummaryCard';
 import LifetimeMilestonesCard from '../components/dashboard/LifetimeMilestonesCard';
+import DashboardHistorySection from '../components/dashboard/DashboardHistorySection';
+import DashboardModals from '../components/dashboard/DashboardModals';
+import { useDonationState } from '../hooks/useDonationState';
 import * as api from '../services/api';
 import './DashboardPage.css';
 
 /**
  * DashboardPage is the donor control center.
- * Features profile summaries, current subscription adjustments, achievements (milestones),
- * and interactive receipt drill-down generation.
- * 
+ *
+ * Why? Orchestrates profile summaries, achievement tracking, donation updates,
+ * and history rendering. Split into sub-components to strictly respect file size limits.
+ *
  * @returns {JSX.Element}
  */
 export default function DashboardPage() {
   const { profileData, refreshUser } = useAuth();
+  const {
+    updateLoading,
+    cancelLoading,
+    rolloverLoading,
+    updateMsg,
+    setUpdateMsg,
+    updateDonation,
+    cancelScheduled,
+    simulateMockRollover,
+  } = useDonationState();
+
   const [updateAmount, setUpdateAmount] = useState('');
-  const [updateLoading, setUpdateLoading] = useState(false);
-  const [updateMsg, setUpdateMsg] = useState({ type: '', text: '' });
   const [claimingId, setClaimingId] = useState(null);
   const [confetti, setConfetti] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState(null);
   const [selectedReceiptTx, setSelectedReceiptTx] = useState(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingAmount, setPendingAmount] = useState(null);
 
+  const isDev = import.meta.env.DEV;
   const data = profileData;
 
   useEffect(() => {
-    // Refresh user state on mount to ensure synchronized records
     refreshUser();
   }, []);
 
@@ -40,6 +52,22 @@ export default function DashboardPage() {
       setUpdateAmount(String(data.monthlyAmount));
     }
   }, [data?.monthlyAmount]);
+
+  // Poll every 60 seconds while a scheduled update is pending (mock/webhook sync rollover)
+  useEffect(() => {
+    if (!data?.scheduledAmount) return;
+    const interval = setInterval(() => {
+      refreshUser();
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [data?.scheduledAmount]);
+
+  // Clear stale updateMsg when rollover resolves
+  useEffect(() => {
+    if (!data?.scheduledAmount) {
+      setUpdateMsg({ type: '', text: '' });
+    }
+  }, [data?.scheduledAmount]);
 
   if (!data) {
     return (
@@ -55,10 +83,6 @@ export default function DashboardPage() {
 
   const { user, tier, monthlyAmount, lifetimeTotal, transactions, claimedMilestones, milestones, tiers } = data;
 
-  /**
-   * Spawns milestone claims API request and triggers brief visual confetti pop.
-   * @param {number} milestoneId - Milestone unique identifier.
-   */
   const handleClaimMilestone = async (milestoneId) => {
     setClaimingId(milestoneId);
     try {
@@ -73,20 +97,28 @@ export default function DashboardPage() {
     }
   };
 
-  /**
-   * Fast-tracks available subscription preset tiers direct to Checkout StripeModal.
-   * @param {number} amount - Tier preset sum in USD.
-   */
-  const handleStartDonation = (amount) => {
-    setSelectedAmount(amount);
-    setCheckoutOpen(true);
+  const handleStartDonation = async (amount) => {
+    if (updateLoading) return;
+    if (monthlyAmount > 0) {
+      setPendingAmount(amount);
+      setShowConfirmModal(true);
+    } else {
+      setSelectedAmount(amount);
+      setCheckoutOpen(true);
+    }
+  };
+
+  const handleConfirmUpdate = async () => {
+    setShowConfirmModal(false);
+    if (!pendingAmount) return;
+    await updateDonation(pendingAmount);
+    setPendingAmount(null);
   };
 
   return (
     <div className="dashboard-page">
       <DashboardNav />
 
-      {/* Interactive celebratory confetti */}
       {confetti && (
         <div className="confetti-overlay">
           {Array.from({ length: 50 }).map((_, i) => (
@@ -104,25 +136,69 @@ export default function DashboardPage() {
       )}
 
       <main className="dashboard-main container">
+        {data.scheduledAmount && (
+          <div className="dash-scheduled-banner animate-fade-in">
+            <div className="dash-scheduled-banner__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="20" height="20">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="dash-scheduled-banner__text">
+              Your monthly donation update to <strong>${data.scheduledAmount}/mo</strong>
+              {(() => {
+                const scheduledTier = tiers?.find(t =>
+                  data.scheduledAmount >= t.minAmount &&
+                  (t.maxAmount === null || data.scheduledAmount <= t.maxAmount)
+                );
+                return scheduledTier ? <> ({scheduledTier.name} tier)</> : null;
+              })()} has been scheduled and will take effect at the end of the current billing cycle.
+            </div>
+            {isDev && (
+              <button
+                className="dash-simulate-btn"
+                onClick={simulateMockRollover}
+                disabled={rolloverLoading}
+                title="Dev only: simulate billing cycle rollover"
+              >
+                {rolloverLoading ? '⏳ Rolling over...' : '🧪 Simulate Billing Rollover'}
+              </button>
+            )}
+            <div className="dash-scheduled-banner__pulse" />
+          </div>
+        )}
+
         <div className="dashboard-grid">
-          {/* Top Row Profile Metrics */}
           <UserSummaryCard
             user={user}
             tier={tier}
             monthlyAmount={monthlyAmount}
+            scheduledAmount={data.scheduledAmount}
+            scheduledAmountEffectiveDate={data.scheduledAmountEffectiveDate}
             lifetimeTotal={lifetimeTotal}
           />
 
-          {/* Left Column - Change donation amount card (Presets & click action) */}
           <div className="dashboard-col-left">
+            <div className="dash-notice-banner">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16" style={{ flexShrink: 0 }}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Updating your donation <strong>won't charge you</strong> until your next month's billing cycle.</span>
+            </div>
+
             <section className="dash-card dash-card--update animate-fade-in-up animate-delay-1">
               <CustomAmountCard
                 onDonate={handleStartDonation}
                 title="Change total donation amount"
                 desc="The amount you choose will become your new monthly total."
-                buttonLabel="Change Total Amount"
+                buttonLabel={updateLoading ? "Updating..." : "Change Total Amount"}
                 presetAmounts={[10, 85, 170]}
               >
+                {updateMsg.text && (
+                  <div className={`dash-msg dash-msg--${updateMsg.type}`}>
+                    {updateMsg.text}
+                  </div>
+                )}
+
                 <div className="dash-tiers-desc">
                   <span className="dash-tiers-label">Available Tiers (Click to select)</span>
                   
@@ -132,7 +208,7 @@ export default function DashboardPage() {
                     style={{ borderLeft: '3px solid #4285f4', cursor: 'pointer' }}
                   >
                     <strong>Regular — $10+/mo</strong>
-                    <p>Newsletter · Yearly zoom event · Voting seeds · Discounted OMP tours</p>
+                    <p>Newsletter · Voting seeds · Discounted OMP tours</p>
                   </div>
                   
                   <div 
@@ -157,9 +233,7 @@ export default function DashboardPage() {
             </section>
           </div>
 
-          {/* Right Column - Top: Lifetime Milestones, Bottom: Donation History */}
           <div className="dashboard-col-right">
-            {/* Top slot: Lifetime Milestones */}
             <LifetimeMilestonesCard
               milestones={milestones}
               lifetimeTotal={lifetimeTotal}
@@ -168,114 +242,36 @@ export default function DashboardPage() {
               onClaimMilestone={handleClaimMilestone}
             />
 
-            {/* Bottom slot: Donation History */}
-            <section className="dash-card dash-card--history animate-fade-in-up animate-delay-2">
-              <h3 className="dash-card__title">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Donation History
-              </h3>
-
-              {transactions?.length > 0 ? (
-                <div className="dash-timeline">
-                  {transactions.map((t) => (
-                    <div
-                      key={t.id}
-                      className="dash-timeline__item dash-timeline__item--clickable"
-                      onClick={() => setSelectedReceiptTx(t)}
-                    >
-                      <div className="dash-timeline__dot" />
-                      <div className="dash-timeline__content">
-                        <span className={`dash-timeline__amount ${t.status === 'FAILED' ? 'dash-timeline__amount--failed' : ''}`}>
-                          ${(t.amount / 100).toFixed(2)}
-                        </span>
-                        <span className="dash-timeline__date">
-                          {new Date(t.createdAt).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                          })}
-                        </span>
-                        <span className={`dash-timeline__status dash-timeline__status--${t.status.toLowerCase()}`}>
-                          {t.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="dash-history-empty">
-                  <svg width="80" height="80" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--brand-blue)', opacity: 0.7 }}>
-                    <path d="M50 75 C50 75 25 57.5 25 37.5 C25 25 35 15 45 22.5 C47.5 25 50 30 50 30 C50 30 52.5 25 55 22.5 C65 15 75 25 75 37.5 C75 57.5 50 75 50 75 Z" />
-                    <path d="M15 50 H32 L38 30 L46 65 L52 42 L56 54 L62 50 H85" stroke="var(--brand-green)" strokeWidth="2" style={{ filter: 'drop-shadow(0 0 3px rgba(52,168,83,0.3))' }} />
-                  </svg>
-                  <div>
-                    <h4 style={{ margin: '0 0 4px', color: 'var(--color-text-primary)', fontWeight: '700', fontSize: '15px' }}>No donation history yet</h4>
-                    <p style={{ margin: 0, fontSize: '13px', color: 'var(--color-text-secondary)', maxWidth: '280px', lineHeight: '1.5' }}>
-                      Your contribution records will appear here as soon as you complete your first recurring monthly donation!
-                    </p>
-                  </div>
-                </div>
-              )}
-            </section>
+            <DashboardHistorySection
+              transactions={transactions}
+              scheduledAmount={data.scheduledAmount}
+              scheduledAmountEffectiveDate={data.scheduledAmountEffectiveDate}
+              cancelScheduled={cancelScheduled}
+              cancelLoading={cancelLoading}
+              setSelectedReceiptTx={setSelectedReceiptTx}
+              currentAmount={monthlyAmount}
+            />
           </div>
         </div>
       </main>
 
-      <CheckoutModal
-        isOpen={checkoutOpen}
-        onClose={() => { setCheckoutOpen(false); refreshUser(); }}
-        amount={selectedAmount}
+      <DashboardModals
+        checkoutOpen={checkoutOpen}
+        setCheckoutOpen={setCheckoutOpen}
+        selectedAmount={selectedAmount}
+        refreshUser={refreshUser}
+        selectedReceiptTx={selectedReceiptTx}
+        setSelectedReceiptTx={setSelectedReceiptTx}
+        user={user}
+        tiers={tiers}
+        showConfirmModal={showConfirmModal}
+        setShowConfirmModal={setShowConfirmModal}
+        monthlyAmount={monthlyAmount}
+        pendingAmount={pendingAmount}
+        setPendingAmount={setPendingAmount}
+        handleConfirmUpdate={handleConfirmUpdate}
+        updateLoading={updateLoading}
       />
-
-      <Modal
-        isOpen={!!selectedReceiptTx}
-        onClose={() => setSelectedReceiptTx(null)}
-        title="Donation Receipt"
-        size="lg"
-      >
-        {selectedReceiptTx && (
-          <DonationReceipt
-            referenceId={selectedReceiptTx.id}
-            dateStr={new Date(selectedReceiptTx.createdAt).toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-            })}
-            amount={Math.round(selectedReceiptTx.amount / 100)}
-            donorName={`${user.firstName} ${user.lastName}`}
-            donorEmail={user.email}
-            country={user.country}
-            tierName={
-              tiers.find(t => {
-                const amt = Math.round(selectedReceiptTx.amount / 100);
-                return amt >= t.minAmount && (t.maxAmount === null || amt <= t.maxAmount);
-              })?.name || 'Regular'
-            }
-            tierPerks={
-              (() => {
-                const matchingTier = tiers.find(t => {
-                  const amt = Math.round(selectedReceiptTx.amount / 100);
-                  return amt >= t.minAmount && (t.maxAmount === null || amt <= t.maxAmount);
-                });
-                if (matchingTier) {
-                  try {
-                    return typeof matchingTier.perks === 'string'
-                      ? JSON.parse(matchingTier.perks)
-                      : (Array.isArray(matchingTier.perks) ? matchingTier.perks : []);
-                  } catch (e) {
-                    return [];
-                  }
-                }
-                return [];
-              })()
-            }
-            showPrintButton={true}
-            onClose={() => setSelectedReceiptTx(null)}
-          />
-        )}
-      </Modal>
     </div>
   );
 }

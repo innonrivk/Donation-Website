@@ -50,7 +50,7 @@ export default function DonationCard({ box, onDonate, isPopular = false, isExpan
         <div className="donation-card__price">
           <span className="donation-card__currency">$</span>
           <span className="donation-card__amount">{box.amount}</span>
-          <span className="donation-card__period">/mo</span>
+          {box.isRecurring !== false && <span className="donation-card__period">/mo</span>}
         </div>
       </div>
       
@@ -78,7 +78,7 @@ export default function DonationCard({ box, onDonate, isPopular = false, isExpan
         className="donation-card__btn"
         onClick={(e) => {
           e.stopPropagation(); // Prevent toggling height when clicking Donate button
-          onDonate(box.amount);
+          onDonate(box.amount, box.isRecurring !== false);
         }}
       >
         {box.buttonText || `Donate $${box.amount}/mo`}
