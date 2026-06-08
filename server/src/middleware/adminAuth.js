@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import prisma from '../lib/prisma.js';
 
 /**
  * Admin JWT secret — sourced exclusively from environment.
@@ -13,13 +14,18 @@ const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || 'dev-admin-secret-DO-NO
  * Why? Admin routes use Bearer token authentication (not cookies) to decouple
  * admin SPA sessions from the donor cookie-based auth flow. This middleware
  * extracts the token from the Authorization header, verifies the signature,
- * asserts the ADMIN role, and attaches the decoded payload to req.adminUser.
+ * asserts the ADMIN role, and performs a live database lookup to confirm the
+ * account is still active and still holds the ADMIN role.
+ *
+ * Why the DB lookup? Stateless JWT payloads remain valid until expiry even
+ * if an admin account has been deactivated or demoted. The fast DB check
+ * (single indexed PK lookup) eliminates this revocation blind spot.
  *
  * @param {import('express').Request} req - Express request.
  * @param {import('express').Response} res - Express response.
  * @param {import('express').NextFunction} next - Express next middleware.
  */
-export function requireAdminAuth(req, res, next) {
+export async function requireAdminAuth(req, res, next) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -48,10 +54,23 @@ export function requireAdminAuth(req, res, next) {
       });
     }
 
+    // Live DB verification — ensures deactivated/demoted admins are rejected
+    const dbUser = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { id: true, email: true, role: true, isActive: true },
+    });
+
+    if (!dbUser || !dbUser.isActive || dbUser.role !== 'ADMIN') {
+      return res.status(403).json({
+        error: 'forbidden',
+        message: 'Admin account has been deactivated or privileges revoked.',
+      });
+    }
+
     req.adminUser = {
-      userId: decoded.userId,
-      email: decoded.email,
-      role: decoded.role,
+      userId: dbUser.id,
+      email: dbUser.email,
+      role: dbUser.role,
     };
 
     next();

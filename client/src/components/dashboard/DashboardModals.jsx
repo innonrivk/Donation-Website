@@ -87,7 +87,7 @@ export default function DashboardModals({
                     return typeof matchingTier.perks === 'string'
                       ? JSON.parse(matchingTier.perks)
                       : (Array.isArray(matchingTier.perks) ? matchingTier.perks : []);
-                  } catch (e) {
+                  } catch {
                     return [];
                   }
                 }

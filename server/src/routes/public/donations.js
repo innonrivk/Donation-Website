@@ -127,6 +127,7 @@ router.post('/subscribe', async (req, res, next) => {
               stripeInvoiceId: subscription.latest_invoice?.id || null,
               amount: amountCents,
               status: 'SUCCEEDED',
+              isRecurring: true,
             },
           });
         }

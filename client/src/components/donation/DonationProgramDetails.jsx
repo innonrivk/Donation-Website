@@ -24,6 +24,17 @@ function parsePerks(perks) {
   return Array.isArray(perks) ? perks : [];
 }
 
+/**
+ * DonationProgramDetails displays tiers and milestones on the landing page.
+ *
+ * Why? Splits donation milestones into separate tracks to visually differentiate
+ * monthly subscription roadmaps from one-time repeatable objectives.
+ *
+ * @param {Object} props
+ * @param {Array} props.tiers - Donation tier levels
+ * @param {Array} props.milestones - Accomplishment levels
+ * @returns {JSX.Element|null}
+ */
 export default function DonationProgramDetails({ tiers, milestones }) {
   const hasTiers = tiers && tiers.length > 0;
   const hasMilestones = milestones && milestones.length > 0;
@@ -48,7 +59,7 @@ export default function DonationProgramDetails({ tiers, milestones }) {
             </div>
 
             <div className="tiers-grid">
-              {tiers.map((tier, index) => {
+              {tiers.map((tier) => {
                 const isFeatured = tier.tierLevel === 3; // Patron
                 const perks = parsePerks(tier.perks);
                 const icon =
@@ -95,36 +106,70 @@ export default function DonationProgramDetails({ tiers, milestones }) {
         {/* ── Money Milestones ── */}
         {hasMilestones && (
           <div className="milestones-section" id="milestones">
-            <div className="milestones-header">
-              <span className="milestones-header__label">Lifetime Rewards</span>
-              <h2 className="milestones-header__title">
-                Total Donation <span className="gradient-text">Objectives</span>
-              </h2>
-              <p className="milestones-header__desc">
-                The more you give over time, the more recognition you earn.
-                Reach these milestones and unlock special rewards.
-              </p>
-            </div>
-
-            <div className="milestones-timeline">
-              {milestones.map((m, index) => (
-                <div
-                  key={m.id}
-                  className="milestone-item"
-                >
-                  <div className="milestone-item__top">
-                    <span className="milestone-item__amount">
-                      ${m.amountUsd.toLocaleString()}
-                    </span>
-                    {m.isRepeatable && (
-                      <span className="milestone-item__repeatable">Repeatable</span>
-                    )}
-                    <span className="milestone-item__label">{m.label}</span>
-                  </div>
-                  <p className="milestone-item__desc">{m.description}</p>
+            {/* ── Monthly Donation Roadmap ── */}
+            {milestones.some(m => !m.isRepeatable) && (
+              <div className="milestones-track-section" style={{ marginBottom: '5rem' }}>
+                <div className="milestones-header">
+                  <span className="milestones-header__label">Monthly Rewards</span>
+                  <h2 className="milestones-header__title">
+                    Monthly Donation <span className="gradient-text">Roadmap</span>
+                  </h2>
+                  <p className="milestones-header__desc">
+                    Your consistent monthly support drives lasting change. Reach these honorary milestones to unlock certificates and premium donor statuses.
+                  </p>
                 </div>
-              ))}
-            </div>
+
+                <div className="milestones-timeline">
+                  {milestones.filter(m => !m.isRepeatable).map((m) => (
+                    <div
+                      key={m.id}
+                      className="milestone-item"
+                    >
+                      <div className="milestone-item__top">
+                        <span className="milestone-item__amount">
+                          ${m.amountUsd.toLocaleString()}
+                        </span>
+                        <span className="milestone-item__label">{m.label}</span>
+                      </div>
+                      <p className="milestone-item__desc">{m.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Tangible Impact Objectives ── */}
+            {milestones.some(m => m.isRepeatable) && (
+              <div className="milestones-track-section">
+                <div className="milestones-header">
+                  <span className="milestones-header__label">One-Time Objectives</span>
+                  <h2 className="milestones-header__title">
+                    Tangible Impact <span className="gradient-text">Objectives</span>
+                  </h2>
+                  <p className="milestones-header__desc">
+                    Funded entirely by one-time donations. Every repeatable target you hit directly finances tangible supplies and field resources.
+                  </p>
+                </div>
+
+                <div className="milestones-timeline">
+                  {milestones.filter(m => m.isRepeatable).map((m) => (
+                    <div
+                      key={m.id}
+                      className="milestone-item"
+                    >
+                      <div className="milestone-item__top">
+                        <span className="milestone-item__amount">
+                          ${m.amountUsd.toLocaleString()}
+                        </span>
+                        <span className="milestone-item__repeatable">Repeatable Objective</span>
+                        <span className="milestone-item__label" style={{ background: 'rgba(49, 151, 149, 0.1)', color: '#319795' }}>{m.label}</span>
+                      </div>
+                      <p className="milestone-item__desc">{m.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

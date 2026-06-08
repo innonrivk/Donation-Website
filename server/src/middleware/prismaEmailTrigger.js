@@ -70,65 +70,75 @@ export function withEmailTrigger(client) {
               isMock: isMockTransaction 
             });
 
-            // Fetch user + matching Tier asynchronously.
-            // 100ms delay ensures any interactive DB transaction has committed before read.
-            setTimeout(() => {
-              client.user.findUnique({
-                where: { id: result.userId }
-              }).then(async (user) => {
-                if (!user || !user.email) {
-                  logger.error('TRANSACTION_RECEIPT_USER_NOT_FOUND_OR_NO_EMAIL', { userId: result.userId, transactionId: result.id });
-                  return;
-                }
-
-                // Resolve the donor's active tier from the Tier table using monthlyAmount (already in dollars) or result.amount (in cents)
-                const amountDollars = user.monthlyAmount ? user.monthlyAmount : Math.floor(result.amount / 100);
-                let tierName  = 'Supporter';
-                let tierPerks = [];
-
-                try {
-                  const tier = await client.tier.findFirst({
-                    where: {
-                      minAmount: { lte: amountDollars },
-                      OR: [
-                        { maxAmount: null },
-                        { maxAmount: { gte: amountDollars } },
-                      ],
-                    },
-                    orderBy: { tierLevel: 'desc' },
-                  });
-
-                  if (tier) {
-                    tierName  = tier.name;
-                    // perks is stored as a JSON array in SQLite
-                    tierPerks = Array.isArray(tier.perks) ? tier.perks : JSON.parse(tier.perks || '[]');
-                  }
-                } catch (tierErr) {
-                  logger.error('TRANSACTION_RECEIPT_TIER_FETCH_FAILED', { error: tierErr.message, userId: user.id });
-                }
-
-                sendEmail({
-                  to:          user.email,
-                  subject:     'Thank you for your donation — Official OMP Receipt 🎉',
-                  title:       'Donation Receipt',
-                  messageText: `Hi ${user.firstName || 'Donor'}, thank you for your generous support of $${(result.amount / 100).toFixed(2)}. Your contribution goes directly towards our active projects.`,
-                  receiptData: {
-                    amount:        result.amount,
-                    transactionId: result.stripeInvoiceId || result.id,
-                    date:          result.createdAt,
-                    donorName:     `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-                    donorEmail:    user.email,
-                    country:       user.country || 'Not specified',
-                    tierName,
-                    tierPerks,
-                  }
-                }).catch((err) => {
-                  logger.error('TRANSACTION_RECEIPT_TRIGGER_FAILED', { error: err.message, transactionId: result.id });
+            // Queue user resolution and email dispatch to the next event loop tick.
+            // This ensures the calling transaction commits and releases the connection
+            // back to the pool, preventing deadlocks when connection_limit = 1.
+            setImmediate(async () => {
+              try {
+                const user = await client.user.findUnique({
+                  where: { id: result.userId }
                 });
-              }).catch((err) => {
+
+                if (user && user.email) {
+                  let tierName = 'One-Time Donation';
+                  let tierPerks = [];
+
+                  if (result.isRecurring) {
+                    // Resolve the donor's active tier from the Tier table using monthlyAmount (already in dollars)
+                    const amountDollars = user.monthlyAmount ? user.monthlyAmount : Math.floor(result.amount / 100);
+                    tierName = 'Supporter';
+
+                    try {
+                      const tier = await client.tier.findFirst({
+                        where: {
+                          minAmount: { lte: amountDollars },
+                          OR: [
+                            { maxAmount: null },
+                            { maxAmount: { gte: amountDollars } },
+                          ],
+                        },
+                        orderBy: { tierLevel: 'desc' },
+                      });
+
+                      if (tier) {
+                        tierName = tier.name;
+                        // perks is stored as a JSON array in SQLite
+                        tierPerks = Array.isArray(tier.perks) ? tier.perks : JSON.parse(tier.perks || '[]');
+                      }
+                    } catch (tierErr) {
+                      logger.error('TRANSACTION_RECEIPT_TIER_FETCH_FAILED', { error: tierErr.message, userId: user.id });
+                    }
+                  }
+
+                  // Dispatches sendEmail and catches errors safely
+                  sendEmail({
+                    to: user.email,
+                    subject: result.isRecurring
+                      ? 'Thank you for your donation — Official OMP Receipt 🎉'
+                      : 'Thank you for your one-time donation — Official OMP Receipt 🎉',
+                    title: 'Donation Receipt',
+                    messageText: `Hi ${user.firstName || 'Donor'}, thank you for your generous support of $${(result.amount / 100).toFixed(2)}. Your contribution goes directly towards our active projects.`,
+                    receiptData: {
+                      amount: result.amount,
+                      transactionId: result.stripeInvoiceId || result.id,
+                      date: result.createdAt,
+                      donorName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+                      donorEmail: user.email,
+                      country: user.country || 'Not specified',
+                      tierName,
+                      tierPerks,
+                      isRecurring: result.isRecurring,
+                    }
+                  }).catch((err) => {
+                    logger.error('TRANSACTION_RECEIPT_TRIGGER_FAILED', { error: err.message, transactionId: result.id });
+                  });
+                } else {
+                  logger.error('TRANSACTION_RECEIPT_USER_NOT_FOUND_OR_NO_EMAIL', { userId: result.userId, transactionId: result.id });
+                }
+              } catch (err) {
                 logger.error('TRANSACTION_RECEIPT_USER_FETCH_FAILED', { error: err.message, transactionId: result.id });
-              });
-            }, 100);
+              }
+            });
           }
 
           return result;

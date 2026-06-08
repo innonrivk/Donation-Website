@@ -62,9 +62,12 @@ export async function generateReceiptPdf(opts) {
     country    = 'Not specified',
     tierName   = 'Supporter',
     tierPerks  = [],
+    isRecurring = true,
   } = opts;
 
-  const amountFormatted = `$${(amount / 100).toFixed(2)} / Month`;
+  const amountFormatted = isRecurring
+    ? `$${(amount / 100).toFixed(2)} / Month`
+    : `$${(amount / 100).toFixed(2)}`;
   const dateFormatted   = new Date(date).toLocaleDateString('en-US', {
     year: 'numeric', month: 'long', day: 'numeric'
   });
@@ -117,7 +120,13 @@ export async function generateReceiptPdf(opts) {
     ];
 
     const postAmountRows = [
-      ['Subscription Tier:', tierName, true, false, true] // zebra=true, mono=false, tier=true (star rendered safely)
+      [
+        isRecurring ? 'Subscription Tier:' : 'Donation Type:',
+        isRecurring ? tierName : 'One-Time Donation',
+        true,
+        false,
+        isRecurring
+      ]
     ];
 
     // ── 4. Dynamic Height Calculation for Card Container ──

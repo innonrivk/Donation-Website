@@ -80,13 +80,17 @@ async function main() {
     const unitSuccess = await runSuite('Unit Tests', resolve(__dirname, 'unit/middleware.test.js'));
     const integrationSuccess = await runSuite('Integration Tests', resolve(__dirname, 'integration/api.test.js'));
     const edgeSuccess = await runSuite('Edge-Case Tests', resolve(__dirname, 'edge/attacks.test.js'));
+    const tracksSuccess = await runSuite('Donation Track Tests', resolve(__dirname, 'edge/tracks.test.js'));
+    const envSuccess = await runSuite('Env Edge-Case Tests', resolve(__dirname, 'edge/env.test.js'));
 
     console.log('\n📊 Test execution summary:');
     console.log(`   Unit Tests:        ${unitSuccess ? '✅ PASS' : '❌ FAIL'}`);
     console.log(`   Integration Tests: ${integrationSuccess ? '✅ PASS' : '❌ FAIL'}`);
     console.log(`   Edge-Case Tests:   ${edgeSuccess ? '✅ PASS' : '❌ FAIL'}`);
+    console.log(`   Donation Tracks:   ${tracksSuccess ? '✅ PASS' : '❌ FAIL'}`);
+    console.log(`   Env Edge Tests:    ${envSuccess ? '✅ PASS' : '❌ FAIL'}`);
 
-    if (unitSuccess && integrationSuccess && edgeSuccess) {
+    if (unitSuccess && integrationSuccess && edgeSuccess && tracksSuccess && envSuccess) {
       console.log('\n🎉 ALL TEST SUITES PASSED SUCCESSFULLY!');
       server.kill();
       process.exit(0);

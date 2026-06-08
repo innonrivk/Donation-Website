@@ -289,6 +289,7 @@ export async function simulateRollover(req, res, next) {
           amount: scheduledAmtCents,
           status: 'SUCCEEDED',
           stripePaymentIntentId: `pi_mock_rollover_${Date.now()}`,
+          isRecurring: true,
         },
       });
 

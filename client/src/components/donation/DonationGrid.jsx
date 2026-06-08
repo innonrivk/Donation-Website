@@ -53,7 +53,7 @@ export default function DonationGrid({ boxes, onDonate }) {
           </div>
 
           {/* Fixed amount cards */}
-          {fixedBoxes.map((box, index) => (
+          {fixedBoxes.map((box) => (
             <div
               key={box.id}
               className=""

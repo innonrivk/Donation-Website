@@ -1,0 +1,232 @@
+import { useState, useRef, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useForm, useFieldArray } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { adminApi } from '../../lib/api';
+
+const TierFormSchema = z.object({
+  tierLevel: z.preprocess((val) => parseInt(val, 10), z.number().int().min(1)),
+  name: z.string().min(1, 'Name is required'),
+  minAmount: z.preprocess((val) => parseInt(val, 10), z.number().int().min(0)),
+  maxAmount: z.preprocess((val) => (val === '' ? null : parseInt(val, 10)), z.number().int().min(0).nullable().optional()),
+  perks: z.array(z.object({ value: z.string().min(1, 'Perk description cannot be empty') })),
+});
+
+export default function CMSTiers() {
+  const queryClient = useQueryClient();
+  const [editingTier, setEditingTier] = useState(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [apiError, setApiError] = useState('');
+  const perksContainerRef = useRef(null);
+  const shouldFocusLast = useRef(false);
+
+  const { data: tiers = [], isLoading } = useQuery({
+    queryKey: ['admin-tiers'],
+    queryFn: async () => {
+      const { data } = await adminApi.get('/tiers');
+      return data;
+    },
+  });
+
+  const { register, handleSubmit, control, reset, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(TierFormSchema),
+    defaultValues: { tierLevel: 1, name: '', minAmount: 0, maxAmount: '', perks: [] },
+  });
+
+  const { fields, append, remove } = useFieldArray({ control, name: 'perks' });
+
+  const saveMutation = useMutation({
+    mutationFn: async (data) => {
+      const payload = { ...data, perks: data.perks.map((p) => p.value) };
+      if (editingTier) return adminApi.put(`/tiers/${editingTier.id}`, payload);
+      return adminApi.post('/tiers', payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-tiers'] });
+      queryClient.invalidateQueries({ queryKey: ['cms'] });
+      closeForm();
+    },
+    onError: (err) => {
+      setApiError(err.response?.data?.message || err.message || 'Operation failed.');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id) => adminApi.delete(`/tiers/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-tiers'] });
+      queryClient.invalidateQueries({ queryKey: ['cms'] });
+    },
+    onError: (err) => alert(err.response?.data?.message || err.message || 'Delete failed.'),
+  });
+
+  // Focus management: when fields length increases, focus the newly added input
+  useEffect(() => {
+    if (shouldFocusLast.current && perksContainerRef.current) {
+      const inputs = perksContainerRef.current.querySelectorAll('.perk-input');
+      if (inputs.length > 0) {
+        inputs[inputs.length - 1].focus();
+      }
+      shouldFocusLast.current = false;
+    }
+  }, [fields.length]);
+
+  const openForm = (tier = null) => {
+    setApiError('');
+    if (tier) {
+      setEditingTier(tier);
+      let parsedPerks;
+      try {
+        parsedPerks = typeof tier.perks === 'string' ? JSON.parse(tier.perks) : (Array.isArray(tier.perks) ? tier.perks : []);
+      } catch {
+        parsedPerks = [];
+      }
+      reset({
+        tierLevel: tier.tierLevel,
+        name: tier.name,
+        minAmount: tier.minAmount,
+        maxAmount: tier.maxAmount === null ? '' : tier.maxAmount,
+        perks: parsedPerks.map((p) => ({ value: p })),
+      });
+    } else {
+      setEditingTier(null);
+      reset({ tierLevel: tiers.length + 1, name: '', minAmount: 0, maxAmount: '', perks: [] });
+    }
+    setIsFormOpen(true);
+  };
+
+  const closeForm = () => {
+    setIsFormOpen(false);
+    setEditingTier(null);
+    reset();
+  };
+
+  const handleAddPerk = () => {
+    shouldFocusLast.current = true;
+    append({ value: '' });
+  };
+
+  if (isLoading) return <div className="admin-loading">Loading donation tiers...</div>;
+
+  return (
+    <div className="cms-section">
+      <div className="cms-section__header">
+        <h2>Donation Tiers & Benefits</h2>
+        {!isFormOpen && (
+          <button onClick={() => openForm()} className="cms-btn cms-btn--primary">
+            + Add New Tier
+          </button>
+        )}
+      </div>
+
+      {apiError && <div className="cms-error-banner">{apiError}</div>}
+
+      {isFormOpen ? (
+        <form onSubmit={handleSubmit((d) => saveMutation.mutate(d))} className="cms-form glass animate-fade-in">
+          <h3>{editingTier ? `Edit Tier: ${editingTier.name}` : 'Add Benefit Tier'}</h3>
+
+          <div className="cms-form__grid">
+            <div className="cms-form__field">
+              <label>Tier Name</label>
+              <input {...register('name')} placeholder="e.g. Regular, Shareholder" />
+              {errors.name && <span className="field-error">{errors.name.message}</span>}
+            </div>
+
+            <div className="cms-form__field">
+              <label>Hierarchy Level</label>
+              <input type="number" {...register('tierLevel')} />
+              {errors.tierLevel && <span className="field-error">{errors.tierLevel.message}</span>}
+            </div>
+
+            <div className="cms-form__field">
+              <label>Min Monthly Amount ($)</label>
+              <input type="number" {...register('minAmount')} />
+              {errors.minAmount && <span className="field-error">{errors.minAmount.message}</span>}
+            </div>
+
+            <div className="cms-form__field">
+              <label>Max Monthly Amount ($) (Empty = Unlimited)</label>
+              <input type="number" {...register('maxAmount')} placeholder="e.g. 84" />
+              {errors.maxAmount && <span className="field-error">{errors.maxAmount.message}</span>}
+            </div>
+          </div>
+
+          <div className="cms-form__field">
+            <div className="perks-header">
+              <label>Tier Perks List (Bullet Points)</label>
+              <button type="button" onClick={handleAddPerk} className="add-perk-btn">
+                + Add Perk Line
+              </button>
+            </div>
+
+            <div ref={perksContainerRef} aria-live="polite" className="perks-list-inputs">
+              {fields.map((field, index) => (
+                <div key={field.id} className="perk-input-row">
+                  <input
+                    {...register(`perks.${index}.value`)}
+                    className="perk-input"
+                    placeholder="e.g. Monthly newsletter updates"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => remove(index)}
+                    aria-label={`Remove perk ${index + 1}`}
+                    className="remove-perk-btn"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="cms-form__actions">
+            <button type="button" onClick={closeForm} className="cms-btn cms-btn--secondary" disabled={isSubmitting}>
+              Cancel
+            </button>
+            <button type="submit" className="cms-btn cms-btn--primary" disabled={isSubmitting}>
+              {isSubmitting ? 'Saving...' : 'Save Tier'}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="cms-cards-grid">
+          {tiers.map((tier) => (
+            <div key={tier.id} className="cms-card glass">
+              <div className="cms-card__order">Level {tier.tierLevel}</div>
+              <h4>{tier.name}</h4>
+              <div className="cms-card__amount">
+                ${tier.minAmount} {tier.maxAmount != null ? `– $${tier.maxAmount}` : '+'} / mo
+              </div>
+              <ul className="cms-card__perks-list">
+                {(() => {
+                  let parsed;
+                  try {
+                    parsed = typeof tier.perks === 'string' ? JSON.parse(tier.perks) : (Array.isArray(tier.perks) ? tier.perks : []);
+                  } catch {
+                    parsed = [];
+                  }
+                  return parsed.map((p, idx) => <li key={idx}>• {p}</li>);
+                })()}
+              </ul>
+              <div className="cms-card__actions">
+                <button onClick={() => openForm(tier)} className="cms-btn-action">Edit</button>
+                <button
+                  onClick={() => {
+                    if (window.confirm('Deleting this tier will unlink it from any donation boxes. Continue?')) {
+                      deleteMutation.mutate(tier.id);
+                    }
+                  }}
+                  className="cms-btn-action cms-btn-action--danger"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -37,7 +37,7 @@ export default function StripeForm({ amount, onClose, isRecurring = true }) {
   try {
     const auth = useAuth();
     user = auth?.user;
-  } catch (e) {
+  } catch {
     // Auth context not available
   }
 
@@ -50,6 +50,7 @@ export default function StripeForm({ amount, onClose, isRecurring = true }) {
 
   useEffect(() => {
     if (user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData(prev => ({
         ...prev,
         email: user.email || prev.email,
@@ -65,6 +66,7 @@ export default function StripeForm({ amount, onClose, isRecurring = true }) {
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [referenceId, setReferenceId] = useState('');
   const [infoVerified, setInfoVerified] = useState(false);
 
   const getTierName = (amt) => {
@@ -230,6 +232,7 @@ export default function StripeForm({ amount, onClose, isRecurring = true }) {
       }
 
       console.log(...styleTrace("└── 🎉 Checkout flow completed successfully!", true));
+      setReferenceId('TXN_' + Math.floor(100000 + Math.random() * 900000));
       setSuccess(true);
     } catch (err) {
       console.log(`%c└── ❌ Error: ${err.message}`, "color: #ea4335; font-weight: bold;");
@@ -244,7 +247,6 @@ export default function StripeForm({ amount, onClose, isRecurring = true }) {
   if (success) {
     const tierName = getTierName(amount);
     const tierPerks = getTierPerks(amount);
-    const referenceId = 'TXN_' + Math.floor(100000 + Math.random() * 900000);
     const dateStr = new Date().toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -255,24 +257,34 @@ export default function StripeForm({ amount, onClose, isRecurring = true }) {
       <div className="checkout-form__success" style={{ padding: '8px 0' }}>
         {/* Dynamic CSS Confetti Particles */}
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 99 }}>
-          {Array.from({ length: 40 }).map((_, idx) => (
-            <div
-              key={idx}
-              className="confetti-piece"
-              style={{
-                position: 'absolute',
-                top: `-20px`,
-                left: `${Math.random() * 100}%`,
-                width: `${5 + Math.random() * 8}px`,
-                height: `${8 + Math.random() * 12}px`,
-                backgroundColor: ['#4285f4', '#ea4335', '#fbbc04', '#34a853'][Math.floor(Math.random() * 4)],
-                opacity: 0.8,
-                transform: `rotate(${Math.random() * 360}deg)`,
-                animation: `float-down ${1.5 + Math.random() * 2}s ease-out forwards`,
-                animationDelay: `${Math.random() * 0.4}s`
-              }}
-            />
-          ))}
+          {Array.from({ length: 40 }).map((_, idx) => {
+            const left = (idx * 17) % 100;
+            const width = 5 + ((idx * 3) % 8);
+            const height = 8 + ((idx * 7) % 12);
+            const colorIndex = (idx * 3) % 4;
+            const rotation = (idx * 29) % 360;
+            const duration = 1.5 + (((idx * 11) % 10) / 10) * 2;
+            const delay = ((idx * 13) % 10) / 25;
+            const colors = ['#4285f4', '#ea4335', '#fbbc04', '#34a853'];
+            return (
+              <div
+                key={idx}
+                className="confetti-piece"
+                style={{
+                  position: 'absolute',
+                  top: `-20px`,
+                  left: `${left}%`,
+                  width: `${width}px`,
+                  height: `${height}px`,
+                  backgroundColor: colors[colorIndex],
+                  opacity: 0.8,
+                  transform: `rotate(${rotation}deg)`,
+                  animation: `float-down ${duration}s ease-out forwards`,
+                  animationDelay: `${delay}s`
+                }}
+              />
+            );
+          })}
         </div>
 
         <h3 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-text-primary)', marginBottom: '4px' }}>Thank You! 🎉</h3>

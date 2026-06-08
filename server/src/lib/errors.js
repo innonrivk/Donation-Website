@@ -47,4 +47,5 @@ export const ErrorCodes = Object.freeze({
 
   // Admin
   NOT_FOUND: 'not_found',
+  CONFLICT: 'conflict',
 });

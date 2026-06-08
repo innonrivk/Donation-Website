@@ -26,53 +26,99 @@ const WRITE_METHODS = [
 ];
 
 /**
- * Proxied Prisma client for public controllers.
- *
- * Why? The implementation plan guards content-model writes via convention
- * (no write handlers in public controllers). This proxy enforces the rule
- * mechanically: if a developer accidentally adds a content write to a
- * public controller, it will throw loudly at runtime rather than silently
- * mutating production data.
- *
- * - Reads on protected models (findMany, findFirst, aggregate, etc.) pass through.
- * - Writes on protected models throw an Error with a clear message.
- * - All operations on transactional models (User, Transaction, etc.) pass through.
- * - Top-level methods ($transaction, $connect, etc.) pass through bound to the original client.
+ * Top-level raw SQL methods that bypass model-level guards.
+ * Why block these? A developer could execute arbitrary INSERT/UPDATE/DELETE
+ * SQL against protected tables, completely circumventing the model proxy.
  */
-const handler = {
-  get(target, prop, _receiver) {
-    const value = target[prop];
+const BLOCKED_RAW_METHODS = [
+  '$queryRaw',
+  '$queryRawUnsafe',
+  '$executeRaw',
+  '$executeRawUnsafe',
+];
 
-    // Bind top-level functions ($transaction, $connect, $disconnect, etc.)
-    if (typeof value === 'function') {
-      return value.bind(target);
-    }
+/**
+ * Creates a write-blocking proxy for a given Prisma client instance.
+ *
+ * Why extract this into a factory? Interactive transactions receive a fresh
+ * Prisma transaction client (`tx`) that is NOT the same object as the root
+ * client. Without recursively wrapping `tx`, the guard is bypassed inside
+ * $transaction callbacks. This factory allows us to wrap both the root
+ * client and any transaction client with identical protection.
+ *
+ * @param {import('@prisma/client').PrismaClient} target - The Prisma client to wrap.
+ * @returns {Proxy} A proxied client that blocks writes on protected models.
+ */
+function createPublicGuardProxy(target) {
+  return new Proxy(target, {
+    get(obj, prop, _receiver) {
+      // Block raw SQL methods that could bypass model-level guards
+      if (typeof prop === 'string' && BLOCKED_RAW_METHODS.includes(prop)) {
+        return () => {
+          throw new Error(
+            `[PUBLIC_GUARD] Raw query access denied: ${prop}(). ` +
+            'Raw SQL execution is not permitted through public controllers.'
+          );
+        };
+      }
 
-    // Wrap protected content models with a write-blocking proxy
-    if (typeof prop === 'string' && PROTECTED_MODELS.includes(prop) && value !== null && typeof value === 'object') {
-      return new Proxy(value, {
-        get(modelTarget, method) {
-          if (typeof method === 'string' && WRITE_METHODS.includes(method)) {
-            return () => {
-              throw new Error(
-                `[PUBLIC_GUARD] Write access denied on content model: ${prop}.${method}(). ` +
-                'Content mutations are only permitted through admin controllers.'
-              );
-            };
+      const value = obj[prop];
+
+      // Intercept $transaction to recursively guard the inner tx client
+      if (prop === '$transaction') {
+        return (...args) => {
+          const firstArg = args[0];
+
+          // Interactive transaction: $transaction(async (tx) => { ... })
+          if (typeof firstArg === 'function') {
+            return target.$transaction((tx) => {
+              const guardedTx = createPublicGuardProxy(tx);
+              return firstArg(guardedTx);
+            }, args[1]);
           }
-          const methodValue = modelTarget[method];
-          if (typeof methodValue === 'function') {
-            return methodValue.bind(modelTarget);
-          }
-          return methodValue;
-        },
-      });
-    }
 
-    return value;
-  },
-};
+          // Batch transaction: $transaction([promise1, promise2])
+          // Batch transactions use the same client, safe to pass through
+          return target.$transaction(...args);
+        };
+      }
 
-const prismaPublic = new Proxy(prisma, handler);
+      // Bind top-level functions ($connect, $disconnect, etc.)
+      if (typeof value === 'function') {
+        return value.bind(obj);
+      }
+
+      // Wrap protected content models with a write-blocking proxy
+      if (
+        typeof prop === 'string' &&
+        PROTECTED_MODELS.includes(prop) &&
+        value !== null &&
+        typeof value === 'object'
+      ) {
+        return new Proxy(value, {
+          get(modelTarget, method) {
+            if (typeof method === 'string' && WRITE_METHODS.includes(method)) {
+              return () => {
+                throw new Error(
+                  `[PUBLIC_GUARD] Write access denied on content model: ${prop}.${method}(). ` +
+                  'Content mutations are only permitted through admin controllers.'
+                );
+              };
+            }
+            const methodValue = modelTarget[method];
+            if (typeof methodValue === 'function') {
+              return methodValue.bind(modelTarget);
+            }
+            return methodValue;
+          },
+        });
+      }
+
+      return value;
+    },
+  });
+}
+
+const prismaPublic = createPublicGuardProxy(prisma);
 
 export default prismaPublic;

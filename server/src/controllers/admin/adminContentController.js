@@ -2,7 +2,11 @@ import prisma from '../../lib/prisma.js';
 import { z } from 'zod';
 import { ErrorCodes } from '../../lib/errors.js';
 
-// Schemas
+/**
+ * Zod schema for WebsiteContent payloads.
+ * Why optional fields? Partial updates allow admins to modify only
+ * the fields they need without resending the entire content block.
+ */
 const WebsiteContentSchema = z.object({
   head: z.string().optional(),
   subtitle: z.string().optional(),
@@ -10,9 +14,15 @@ const WebsiteContentSchema = z.object({
   version: z.number().int().optional(),
 });
 
+/**
+ * Zod schema for DonationBox payloads.
+ * Why tierId is nullable? Custom-amount boxes are not associated with
+ * any tier — they allow donors to input an arbitrary amount.
+ */
 const DonationBoxSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   amount: z.number().int().min(0, 'Amount must be at least 0'),
+  tierId: z.number().int().nullable().optional(),
   tierDetails: z.string().optional(),
   buttonText: z.string().optional(),
   isCustomAmount: z.boolean().optional(),
@@ -80,6 +90,12 @@ export async function updateContent(req, res, next) {
     if (error.code === 'P2025') {
       return res.status(404).json({ error: ErrorCodes.NOT_FOUND, message: 'Content not found.' });
     }
+    if (error.code === 'P2002') {
+      return res.status(409).json({
+        error: ErrorCodes.CONFLICT,
+        message: `A content record with this ${error.meta?.target?.join(', ') || 'field'} already exists.`,
+      });
+    }
     next(error);
   }
 }
@@ -106,10 +122,15 @@ export async function deleteContent(req, res, next) {
 
 // --- DonationBox CRUD ---
 
+/**
+ * Why include tier? The admin dashboard needs to display which tier is
+ * linked to each donation box without a separate API call.
+ */
 export async function getDonationBoxes(req, res, next) {
   try {
     const boxes = await prisma.donationBox.findMany({
       orderBy: { displayOrder: 'asc' },
+      include: { tier: true },
     });
     return res.status(200).json(boxes);
   } catch (error) {
@@ -130,9 +151,16 @@ export async function createDonationBox(req, res, next) {
 
     const newBox = await prisma.donationBox.create({
       data: parsed.data,
+      include: { tier: true },
     });
     return res.status(201).json(newBox);
   } catch (error) {
+    if (error.code === 'P2002') {
+      return res.status(409).json({
+        error: ErrorCodes.CONFLICT,
+        message: `A donation box with this ${error.meta?.target?.join(', ') || 'field'} already exists.`,
+      });
+    }
     next(error);
   }
 }
@@ -157,11 +185,18 @@ export async function updateDonationBox(req, res, next) {
     const updated = await prisma.donationBox.update({
       where: { id: boxId },
       data: parsed.data,
+      include: { tier: true },
     });
     return res.status(200).json(updated);
   } catch (error) {
     if (error.code === 'P2025') {
       return res.status(404).json({ error: ErrorCodes.NOT_FOUND, message: 'Donation box not found.' });
+    }
+    if (error.code === 'P2002') {
+      return res.status(409).json({
+        error: ErrorCodes.CONFLICT,
+        message: `A donation box with this ${error.meta?.target?.join(', ') || 'field'} already exists.`,
+      });
     }
     next(error);
   }

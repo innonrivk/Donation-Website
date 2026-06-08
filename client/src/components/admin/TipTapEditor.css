@@ -1,0 +1,89 @@
+.tiptap-editor-container {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-input);
+  overflow: hidden;
+  transition: border-color var(--transition-fast);
+}
+
+.tiptap-editor-container:focus-within {
+  border-color: var(--color-border-accent);
+}
+
+.tiptap-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px;
+  background-color: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tiptap-toolbar button {
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.tiptap-toolbar button:hover {
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.tiptap-toolbar button.active {
+  background-color: var(--brand-blue);
+  color: #ffffff;
+}
+
+.tiptap-content-area {
+  padding: 12px;
+  min-height: 200px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.tiptap-content-area .ProseMirror {
+  outline: none;
+  min-height: 100%;
+}
+
+/* TipTap Editor Inner Styles */
+.tiptap-content-area .ProseMirror p {
+  margin-bottom: 0.75rem;
+}
+
+.tiptap-content-area .ProseMirror p:last-child {
+  margin-bottom: 0;
+}
+
+.tiptap-content-area .ProseMirror h2 {
+  font-size: var(--font-size-xl);
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: var(--brand-dark);
+}
+
+.tiptap-content-area .ProseMirror ul {
+  padding-left: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.tiptap-content-area .ProseMirror li {
+  margin-bottom: 0.25rem;
+}
+
+.tiptap-content-area .ProseMirror a {
+  color: var(--brand-blue);
+  text-decoration: underline;
+}

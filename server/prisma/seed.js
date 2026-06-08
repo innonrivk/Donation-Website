@@ -213,6 +213,23 @@ async function main() {
   console.log('  ✅ Donation milestones seeded');
 
   console.log('\n🎉 Database seeded successfully!');
+
+  // ── Retroactive migration for one-time transactions ──
+  console.log('🔄 Running retroactive migration for transaction tracking flags...');
+  const updateResult = await prisma.transaction.updateMany({
+    where: {
+      stripeInvoiceId: null,
+      NOT: {
+        stripePaymentIntentId: {
+          startsWith: 'pi_mock_rollover_',
+        },
+      },
+    },
+    data: {
+      isRecurring: false,
+    },
+  });
+  console.log(`  ✅ Corrected ${updateResult.count} one-time transactions in SQLite ledger.`);
 }
 
 main()

@@ -58,6 +58,7 @@ model Transaction {
   stripeInvoiceId        String?           @unique @map("stripe_invoice_id")
   amount                 Int               // in cents
   status                 TransactionStatus @default(SUCCEEDED)
+  isRecurring            Boolean           @default(true) @map("is_recurring")
   createdAt              DateTime          @default(now()) @map("created_at")
   user                   User              @relation(fields: [userId], references: [id])
 
@@ -66,12 +67,13 @@ model Transaction {
 }
 
 model Tier {
-  id        Int     @id @default(autoincrement())
-  tierLevel Int     @map("tier_level")
-  name      String
-  minAmount Int     @map("min_amount") // in dollars
-  maxAmount Int?    @map("max_amount") // null = unlimited
-  perks     Json    @default("[]")
+  id             Int           @id @default(autoincrement())
+  tierLevel      Int           @map("tier_level")
+  name           String
+  minAmount      Int           @map("min_amount") // in dollars
+  maxAmount      Int?          @map("max_amount") // null = unlimited
+  perks          Json          @default("[]")
+  donationBoxes  DonationBox[]
 
   @@map("tiers")
 }
@@ -80,13 +82,16 @@ model DonationBox {
   id             Int     @id @default(autoincrement())
   title          String
   amount         Int     @default(0) // monthly amount in dollars
+  tierId         Int?    @map("tier_id")
   tierDetails    String  @default("") @map("tier_details")
   buttonText     String  @default("Donate") @map("button_text")
   isCustomAmount Boolean @default(false) @map("is_custom_amount")
   isRecurring    Boolean @default(true) @map("is_recurring")
   isActive       Boolean @default(true) @map("is_active")
   displayOrder   Int     @default(0) @map("display_order")
+  tier           Tier?   @relation(fields: [tierId], references: [id])
 
+  @@index([tierId])
   @@map("donation_boxes")
 }
 
@@ -124,6 +129,7 @@ model PiggyBank {
   project     ProjectDetail? @relation(fields: [projectId], references: [id])
   votes       Vote[]
 
+  @@index([projectId])
   @@map("piggy_banks")
 }
 
@@ -138,6 +144,8 @@ model Vote {
   project     ProjectDetail @relation(fields: [projectId], references: [id])
   piggyBank   PiggyBank     @relation(fields: [piggyBankId], references: [id])
 
+  @@index([projectId])
+  @@index([piggyBankId])
   @@map("votes")
 }
 

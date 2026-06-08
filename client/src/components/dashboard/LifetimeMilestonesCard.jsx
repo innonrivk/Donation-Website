@@ -1,4 +1,4 @@
-import React from 'react';
+
 
 /**
  * LifetimeMilestonesCard renders historical achievement goals for the donor.
@@ -6,14 +6,16 @@ import React from 'react';
  * 
  * @param {Object} props
  * @param {Array} props.milestones - All system Milestones
- * @param {number} props.lifetimeTotal - Total money donated historically in USD
+ * @param {number} props.lifetimeMonthlyTotal - Total recurring money donated historically in USD
+ * @param {number} props.lifetimeOneTimeTotal - Total one-time money donated historically in USD
  * @param {Array} props.claimedMilestones - User claimed milestones relations
  * @param {number|string|null} props.claimingId - Currently loading claim state ID
  * @param {Function} props.onClaimMilestone - Action handler when claim button is clicked
  */
 export default function LifetimeMilestonesCard({
   milestones,
-  lifetimeTotal,
+  lifetimeMonthlyTotal,
+  lifetimeOneTimeTotal,
   claimedMilestones,
   claimingId,
   onClaimMilestone,
@@ -36,49 +38,57 @@ export default function LifetimeMilestonesCard({
       <div className="dash-milestones-list">
         {milestones?.map((m) => {
           const claimCount = getClaimCount(m.id);
+          const currentTotal = m.isRepeatable ? lifetimeOneTimeTotal : lifetimeMonthlyTotal;
+          const target = m.amountUsd;
+          
           let progress, isUnlocked, claimedPermanently;
 
           if (m.isRepeatable) {
-            // Repeatable: progress indicates credit progress towards next claim
-            const creditUsed = claimCount * m.amountUsd;
-            const remainingCredit = Math.max(0, lifetimeTotal - creditUsed);
-            progress = Math.min((remainingCredit / m.amountUsd) * 100, 100);
-            isUnlocked = remainingCredit >= m.amountUsd;
+            const creditUsed = claimCount * target;
+            const remainingCredit = Math.max(0, currentTotal - creditUsed);
+            progress = Math.min((remainingCredit / target) * 100, 100);
+            isUnlocked = remainingCredit >= target;
             claimedPermanently = false;
           } else {
-            // One-time: progress indicates progress towards unlocking
-            progress = Math.min((lifetimeTotal / m.amountUsd) * 100, 100);
-            isUnlocked = lifetimeTotal >= m.amountUsd;
+            progress = Math.min((currentTotal / target) * 100, 100);
+            isUnlocked = currentTotal >= target;
             claimedPermanently = claimCount >= 1;
           }
 
           return (
             <div key={m.id} className={`dash-milestone ${isUnlocked ? 'dash-milestone--unlocked' : ''}`}>
               <div className="dash-milestone__header">
-                <span className="dash-milestone__label">
+                <span className="dash-milestone__label" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
                   {m.label}
                   {m.isRepeatable && claimCount > 0 && (
-                    <span className="dash-milestone__repeat-count" style={{ marginLeft: '8px', fontSize: '12px', opacity: 0.8 }}>
-                      🔁 Claimed {claimCount}×
+                    <span className="dash-milestone__repeat-count" style={{ fontSize: '11px', opacity: 0.8 }}>
+                      🔁 {claimCount}×
                     </span>
                   )}
+                  <span className="dash-milestone__track-tag" style={{
+                    fontSize: '10px',
+                    fontWeight: '600',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    background: m.isRepeatable ? 'rgba(49, 151, 149, 0.1)' : 'rgba(49, 130, 206, 0.1)',
+                    color: m.isRepeatable ? '#319795' : '#3182ce'
+                  }}>
+                    {m.isRepeatable ? 'One-Time Objective' : 'Monthly Roadmap'}
+                  </span>
                 </span>
-                <span className="dash-milestone__target">${m.amountUsd}</span>
+                <span className="dash-milestone__target">${target}</span>
               </div>
               <div className="dash-milestone__bar">
-                <div
-                  className="dash-milestone__fill"
-                  style={{ width: `${progress}%` }}
-                />
+                <div className="dash-milestone__fill" style={{ width: `${progress}%` }} />
               </div>
               <p className="dash-milestone__desc">{m.description}</p>
               {isUnlocked && !claimedPermanently && (
                 <button
                   className="dash-milestone__claim"
                   onClick={() => onClaimMilestone(m.id)}
-                  disabled={claimingId === m.id}
+                  disabled={claimingId !== null && claimingId !== undefined}
                 >
-                  {claimingId === m.id ? '...' : '🎉 Claim Reward'}
+                  {claimingId === m.id ? 'Claiming...' : '🎉 Claim Reward'}
                 </button>
               )}
               {claimedPermanently && (

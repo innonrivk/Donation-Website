@@ -25,49 +25,50 @@ router.post('/claim', requireAuth, async (req, res, next) => {
       return res.status(404).json({ error: 'milestone_not_found', message: 'Milestone not found.' });
     }
 
-    // Count existing claims for this milestone by the user
-    const claimCount = await prisma.claimedMilestone.count({
-      where: {
-        userId: req.user.userId,
-        milestoneId,
-      },
-    });
+    // Execute eligibility check and claim creation inside a single transactional block to prevent race conditions
+    const claimed = await prisma.$transaction(async (tx) => {
+      const claimCount = await tx.claimedMilestone.count({
+        where: {
+          userId: req.user.userId,
+          milestoneId,
+        },
+      });
 
-    if (!milestone.isRepeatable && claimCount >= 1) {
-      return res.status(409).json({ error: 'already_claimed', message: 'You have already claimed this milestone.' });
-    }
-
-    // Verify user has reached the required lifetime amount
-    const lifetimeTotalAgg = await prisma.transaction.aggregate({
-      where: { userId: req.user.userId, status: 'SUCCEEDED' },
-      _sum: { amount: true },
-    });
-    const lifetimeTotalDollars = (lifetimeTotalAgg._sum.amount ?? 0) / 100;
-
-    const requiredAmountDollars = milestone.isRepeatable
-      ? (claimCount + 1) * milestone.amountUsd
-      : milestone.amountUsd;
-
-    if (lifetimeTotalDollars < requiredAmountDollars) {
-      if (milestone.isRepeatable) {
-        return res.status(403).json({
-          error: 'not_eligible',
-          message: `You need a lifetime total of $${requiredAmountDollars} to claim this repeatable milestone again. Current: $${lifetimeTotalDollars.toFixed(0)}.`,
-        });
-      } else {
-        return res.status(403).json({
-          error: 'not_eligible',
-          message: `You need a lifetime total of $${milestone.amountUsd} to claim this milestone. Current: $${lifetimeTotalDollars.toFixed(0)}.`,
-        });
+      if (!milestone.isRepeatable && claimCount >= 1) {
+        const err = new Error('ALREADY_CLAIMED');
+        throw err;
       }
-    }
 
-    // Claim the milestone
-    const claimed = await prisma.claimedMilestone.create({
-      data: {
-        userId: req.user.userId,
-        milestoneId,
-      },
+      // Verify user has reached the required lifetime amount for the specific track
+      const targetTotalAgg = await tx.transaction.aggregate({
+        where: {
+          userId: req.user.userId,
+          status: 'SUCCEEDED',
+          isRecurring: !milestone.isRepeatable, // Repeatable milestones (isRepeatable: true) check one-time transactions (isRecurring: false)
+        },
+        _sum: { amount: true },
+      });
+      const currentTrackTotalDollars = (targetTotalAgg._sum.amount ?? 0) / 100;
+
+      const requiredAmountDollars = milestone.isRepeatable
+        ? (claimCount + 1) * milestone.amountUsd
+        : milestone.amountUsd;
+
+      if (currentTrackTotalDollars < requiredAmountDollars) {
+        const msg = milestone.isRepeatable
+          ? `You need a lifetime one-time total of $${requiredAmountDollars} to claim this repeatable milestone again. Current: $${currentTrackTotalDollars.toFixed(0)}.`
+          : `You need a lifetime monthly total of $${milestone.amountUsd} to claim this milestone. Current: $${currentTrackTotalDollars.toFixed(0)}.`;
+        const err = new Error('NOT_ELIGIBLE');
+        err.details = msg;
+        throw err;
+      }
+
+      return tx.claimedMilestone.create({
+        data: {
+          userId: req.user.userId,
+          milestoneId,
+        },
+      });
     });
 
     return res.status(201).json({
@@ -79,6 +80,12 @@ router.post('/claim', requireAuth, async (req, res, next) => {
       },
     });
   } catch (error) {
+    if (error.message === 'ALREADY_CLAIMED') {
+      return res.status(409).json({ error: 'already_claimed', message: 'You have already claimed this milestone.' });
+    }
+    if (error.message === 'NOT_ELIGIBLE') {
+      return res.status(403).json({ error: 'not_eligible', message: error.details });
+    }
     next(error);
   }
 });

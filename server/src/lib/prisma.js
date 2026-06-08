@@ -9,6 +9,18 @@ import { withEmailTrigger } from '../middleware/prismaEmailTrigger.js';
  * Every route that performs DB writes MUST import from this module so that
  * the email trigger fires consistently on every create operation.
  */
-const prisma = withEmailTrigger(new PrismaClient());
+const rawUrl = process.env.DATABASE_URL || 'file:./dev.db';
+const safetyParams = 'connection_limit=1&socket_timeout=10&busy_timeout=8000';
+const dbUrlWithConcurrencyConfig = rawUrl.includes('?') 
+  ? `${rawUrl}&${safetyParams}` 
+  : `${rawUrl}?${safetyParams}`;
+
+const prisma = withEmailTrigger(new PrismaClient({
+  datasources: {
+    db: {
+      url: dbUrlWithConcurrencyConfig,
+    },
+  },
+}));
 
 export default prisma;

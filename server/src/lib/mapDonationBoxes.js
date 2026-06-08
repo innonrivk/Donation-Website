@@ -1,39 +1,33 @@
 /**
- * Maps raw DonationBox records to include resolved perks from their matching Tier.
+ * Maps raw DonationBox records to include resolved perks.
  *
- * Why? This logic was duplicated verbatim in both content.js and authController.js.
- * Extracting it eliminates ~25 lines of duplication and ensures consistent
- * perk resolution across all public endpoints.
+ * Why? DonationBoxes need a flat `perks` array for the frontend to render
+ * perk lists. With the tierId FK relation, Prisma can now include the tier
+ * data natively (via `include: { tier: true }`), so we resolve perks from
+ * the included tier object first. Falls back to legacy tierDetails pipe-
+ * delimited string for boxes that have not yet been migrated to the FK
+ * relation.
  *
- * @param {Array} donationBoxes - Raw DonationBox records from Prisma.
- * @param {Array} tiers - Raw Tier records from Prisma.
+ * @param {Array} donationBoxes - DonationBox records (with optional included tier).
  * @returns {Array} Mapped donation boxes with resolved perks arrays.
  */
-export function mapDonationBoxes(donationBoxes, tiers) {
+export function mapDonationBoxes(donationBoxes) {
   return donationBoxes.map(box => {
     const plainBox = { ...box };
 
-    if (!plainBox.isCustomAmount) {
-      const matchingTier = tiers.find(
-        t => t.name.toLowerCase() === plainBox.title.toLowerCase()
-      );
-
-      if (matchingTier) {
-        let perks = [];
-        try {
-          perks = typeof matchingTier.perks === 'string'
-            ? JSON.parse(matchingTier.perks)
-            : (Array.isArray(matchingTier.perks) ? matchingTier.perks : []);
-        } catch {
-          perks = [];
-        }
-        plainBox.perks = perks;
-      } else {
-        plainBox.perks = plainBox.tierDetails
-          ? plainBox.tierDetails.split('|').map(p => p.trim())
-          : [];
+    // Resolve perks from the included tier relation (preferred path)
+    if (plainBox.tier && !plainBox.isCustomAmount) {
+      let perks = [];
+      try {
+        perks = typeof plainBox.tier.perks === 'string'
+          ? JSON.parse(plainBox.tier.perks)
+          : (Array.isArray(plainBox.tier.perks) ? plainBox.tier.perks : []);
+      } catch {
+        perks = [];
       }
+      plainBox.perks = perks;
     } else {
+      // Fallback: parse pipe-delimited tierDetails string
       plainBox.perks = plainBox.tierDetails
         ? plainBox.tierDetails.split('|').map(p => p.trim())
         : [];

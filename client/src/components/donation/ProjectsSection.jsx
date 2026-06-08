@@ -13,13 +13,9 @@ export default function ProjectsSection({ projects }) {
   const [expandedId, setExpandedId] = useState(null);
   const [visibleCount, setVisibleCount] = useState(3);
   const [isHovered, setIsHovered] = useState(false);
-  const isPausedRef = useRef(false);
   const hoverTimeoutRef = useRef(null);
 
-  // Fallback check
-  if (!projects || projects.length === 0) return null;
-
-  const n = projects.length;
+  const n = projects ? projects.length : 0;
   const isCarouselEnabled = n >= 3;
 
   // Track window resizing to dynamically update visible slice count
@@ -49,6 +45,9 @@ export default function ProjectsSection({ projects }) {
 
     return () => clearInterval(timer);
   }, [isCarouselEnabled, expandedId, isHovered, n]);
+
+  // Fallback check
+  if (!projects || projects.length === 0) return null;
 
   // Compute indices of currently visible project cards
   const getVisibleProjects = () => {
@@ -235,6 +234,7 @@ function ProjectCard({
   hoverTimeoutRef,
 }) {
   const detailsRef = useRef(null);
+  const [scrollHeight, setScrollHeight] = useState(400);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -243,9 +243,15 @@ function ProjectCard({
     }
   };
 
+  useEffect(() => {
+    if (detailsRef.current) {
+      setScrollHeight(detailsRef.current.scrollHeight);
+    }
+  }, [isExpanded, project.details]);
+
   // Compute expanding dynamic height style
   const maxHeightStyle = isExpanded
-    ? `${detailsRef.current?.scrollHeight || 400}px`
+    ? `${scrollHeight}px`
     : '4.8em';
 
   return (

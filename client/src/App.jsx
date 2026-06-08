@@ -1,7 +1,10 @@
+import React, { Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { AdminAuthProvider } from './context/AdminAuthContext';
 import PrivateRoute from './components/router/PrivateRoute';
 import PublicRoute from './components/router/PublicRoute';
+import AdminProtectedRoute from './components/router/AdminProtectedRoute';
 import DonationPage from './pages/DonationPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
@@ -9,29 +12,56 @@ import OtpVerifyPage from './pages/OtpVerifyPage';
 import DashboardPage from './pages/DashboardPage';
 import SettingsPage from './pages/SettingsPage';
 import NotFoundPage from './pages/NotFoundPage';
+import FullPageSpinner from './components/ui/FullPageSpinner';
 import './App.css';
+
+// Lazy load admin pages to keep the donor bundle lightweight
+const AdminLoginPage = React.lazy(() => import('./pages/AdminLoginPage'));
+const AdminDashboardPage = React.lazy(() => import('./pages/AdminDashboardPage'));
 
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          {/* Public pages */}
-          <Route path="/" element={<DonationPage />} />
-          <Route path="/donation" element={<DonationPage />} />
+        <AdminAuthProvider>
+          <Routes>
+            {/* Public pages */}
+            <Route path="/" element={<DonationPage />} />
+            <Route path="/donation" element={<DonationPage />} />
 
-          {/* Auth pages — redirect if already authenticated */}
-          <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
-          <Route path="/signup" element={<PublicRoute><SignupPage /></PublicRoute>} />
-          <Route path="/signup/verify-otp" element={<PublicRoute><OtpVerifyPage /></PublicRoute>} />
+            {/* Auth pages — redirect if already authenticated */}
+            <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+            <Route path="/signup" element={<PublicRoute><SignupPage /></PublicRoute>} />
+            <Route path="/signup/verify-otp" element={<PublicRoute><OtpVerifyPage /></PublicRoute>} />
 
-          {/* Protected pages — redirect if not authenticated */}
-          <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
-          <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
+            {/* Protected pages — redirect if not authenticated */}
+            <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
+            <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
 
-          {/* Catch-all 404 */}
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
+            {/* Admin routes */}
+            <Route
+              path="/admin/login"
+              element={
+                <Suspense fallback={<FullPageSpinner />}>
+                  <AdminLoginPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/admin/dashboard/*"
+              element={
+                <AdminProtectedRoute>
+                  <Suspense fallback={<FullPageSpinner />}>
+                    <AdminDashboardPage />
+                  </Suspense>
+                </AdminProtectedRoute>
+              }
+            />
+
+            {/* Catch-all 404 */}
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </AdminAuthProvider>
       </AuthProvider>
     </BrowserRouter>
   );

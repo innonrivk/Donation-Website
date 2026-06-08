@@ -31,7 +31,6 @@ export default function DashboardPage() {
     simulateMockRollover,
   } = useDonationState();
 
-  const [updateAmount, setUpdateAmount] = useState('');
   const [claimingId, setClaimingId] = useState(null);
   const [confetti, setConfetti] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -45,13 +44,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     refreshUser();
-  }, []);
-
-  useEffect(() => {
-    if (data?.monthlyAmount) {
-      setUpdateAmount(String(data.monthlyAmount));
-    }
-  }, [data?.monthlyAmount]);
+  }, [refreshUser]);
 
   // Poll every 60 seconds while a scheduled update is pending (mock/webhook sync rollover)
   useEffect(() => {
@@ -60,14 +53,14 @@ export default function DashboardPage() {
       refreshUser();
     }, 60000);
     return () => clearInterval(interval);
-  }, [data?.scheduledAmount]);
+  }, [data?.scheduledAmount, refreshUser]);
 
   // Clear stale updateMsg when rollover resolves
   useEffect(() => {
     if (!data?.scheduledAmount) {
       setUpdateMsg({ type: '', text: '' });
     }
-  }, [data?.scheduledAmount]);
+  }, [data?.scheduledAmount, setUpdateMsg]);
 
   if (!data) {
     return (
@@ -81,7 +74,7 @@ export default function DashboardPage() {
     );
   }
 
-  const { user, tier, monthlyAmount, lifetimeTotal, transactions, claimedMilestones, milestones, tiers } = data;
+  const { user, tier, monthlyAmount, lifetimeTotal, lifetimeMonthlyTotal, lifetimeOneTimeTotal, transactions, claimedMilestones, milestones, tiers } = data;
 
   const handleClaimMilestone = async (milestoneId) => {
     setClaimingId(milestoneId);
@@ -121,17 +114,23 @@ export default function DashboardPage() {
 
       {confetti && (
         <div className="confetti-overlay">
-          {Array.from({ length: 50 }).map((_, i) => (
-            <div
-              key={i}
-              className="confetti-piece"
-              style={{
-                left: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 0.5}s`,
-                backgroundColor: ['#4285f4', '#ea4335', '#fbbc04', '#34a853'][Math.floor(Math.random() * 4)],
-              }}
-            />
-          ))}
+          {Array.from({ length: 50 }).map((_, i) => {
+            const left = (i * 17) % 100;
+            const delay = ((i * 7) % 10) / 20;
+            const colorIndex = (i * 3) % 4;
+            const colors = ['#4285f4', '#ea4335', '#fbbc04', '#34a853'];
+            return (
+              <div
+                key={i}
+                className="confetti-piece"
+                style={{
+                  left: `${left}%`,
+                  animationDelay: `${delay}s`,
+                  backgroundColor: colors[colorIndex],
+                }}
+              />
+            );
+          })}
         </div>
       )}
 
@@ -236,7 +235,8 @@ export default function DashboardPage() {
           <div className="dashboard-col-right">
             <LifetimeMilestonesCard
               milestones={milestones}
-              lifetimeTotal={lifetimeTotal}
+              lifetimeMonthlyTotal={lifetimeMonthlyTotal}
+              lifetimeOneTimeTotal={lifetimeOneTimeTotal}
               claimedMilestones={claimedMilestones}
               claimingId={claimingId}
               onClaimMilestone={handleClaimMilestone}

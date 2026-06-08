@@ -184,17 +184,31 @@ export async function getMe(req, res, next) {
       return res.status(404).json({ error: 'user_not_found', message: 'User not found.' });
     }
 
-    // Compute lifetime total in DB for O(1) memory instead of loading all transactions
-    const lifetimeTotalAgg = await prisma.transaction.aggregate({
+    // Consolidate both total computations into a single database query
+    const aggregates = await prisma.transaction.groupBy({
+      by: ['isRecurring'],
       where: { userId: req.user.userId, status: 'SUCCEEDED' },
       _sum: { amount: true },
     });
-    const lifetimeTotal = Math.round((lifetimeTotalAgg._sum.amount ?? 0) / 100);
+
+    let lifetimeMonthlyTotal = 0;
+    let lifetimeOneTimeTotal = 0;
+
+    for (const group of aggregates) {
+      const amountDollars = Math.round((group._sum.amount ?? 0) / 100);
+      if (group.isRecurring) {
+        lifetimeMonthlyTotal = amountDollars;
+      } else {
+        lifetimeOneTimeTotal = amountDollars;
+      }
+    }
+
+    const lifetimeTotal = lifetimeMonthlyTotal + lifetimeOneTimeTotal; // Backwards compatibility
 
     const [tiers, milestones, donationBoxes] = await Promise.all([
       prisma.tier.findMany({ orderBy: { tierLevel: 'asc' } }),
       prisma.donationMilestone.findMany({ orderBy: { displayOrder: 'asc' } }),
-      prisma.donationBox.findMany({ where: { isActive: true }, orderBy: { displayOrder: 'asc' } }),
+      prisma.donationBox.findMany({ where: { isActive: true }, orderBy: { displayOrder: 'asc' }, include: { tier: true } }),
     ]);
 
     const monthlyAmountDollars = user.monthlyAmount;
@@ -204,7 +218,7 @@ export async function getMe(req, res, next) {
       return matchesMin && matchesMax;
     }) || null;
 
-    const mappedDonationBoxes = mapDonationBoxes(donationBoxes, tiers);
+    const mappedDonationBoxes = mapDonationBoxes(donationBoxes);
 
     return res.status(200).json({
       user: {
@@ -221,11 +235,14 @@ export async function getMe(req, res, next) {
       scheduledAmount: user.scheduledAmount,
       scheduledAmountEffectiveDate: user.scheduledAmountEffectiveDate,
       lifetimeTotal,
+      lifetimeMonthlyTotal,
+      lifetimeOneTimeTotal,
       transactions: user.transactions.map(t => ({
         id: t.id,
         amount: t.amount,
         status: t.status,
         createdAt: t.createdAt,
+        isRecurring: t.isRecurring,
       })),
       claimedMilestones: user.claimedMilestones.map(cm => ({
         milestoneId: cm.milestoneId,

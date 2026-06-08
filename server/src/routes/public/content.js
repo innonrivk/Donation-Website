@@ -6,8 +6,16 @@ const router = Router();
 
 /**
  * GET /api/v1/public/content
- * Returns all public-facing content: website text, active donation boxes, active projects, tiers.
- * Uses the shared mapDonationBoxes utility to resolve tier perks.
+ * Returns all public-facing content: website text, active donation boxes
+ * (with tier perks resolved via FK include), active projects, tiers, milestones.
+ *
+ * Why Promise.all? Executes 5 independent read queries concurrently to
+ * minimize latency. Each query is isolated — a failure in one does not
+ * block others (though the entire Promise.all will reject).
+ *
+ * Why include: { tier: true }? Replaces the legacy O(N*M) string-matching
+ * in mapDonationBoxes with a single SQL JOIN, eliminating the fragile
+ * coupling between DonationBox.title and Tier.name.
  */
 router.get('/', async (req, res, next) => {
   try {
@@ -16,6 +24,7 @@ router.get('/', async (req, res, next) => {
       prisma.donationBox.findMany({
         where: { isActive: true },
         orderBy: { displayOrder: 'asc' },
+        include: { tier: true },
       }),
       prisma.projectDetail.findMany({
         where: { status: 'ACTIVE' },
@@ -28,7 +37,7 @@ router.get('/', async (req, res, next) => {
       }),
     ]);
 
-    const mappedDonationBoxes = mapDonationBoxes(donationBoxes, tiers);
+    const mappedDonationBoxes = mapDonationBoxes(donationBoxes);
 
     res.json({
       websiteContent,

@@ -88,6 +88,7 @@ export async function createOneTimeDonation(req, res, next) {
             stripeInvoiceId: null,
             amount: amountCents,
             status: 'SUCCEEDED',
+            isRecurring: false,
           },
         });
       });
@@ -150,6 +151,7 @@ export async function createOneTimeDonation(req, res, next) {
             stripeInvoiceId: null,
             amount: amountCents,
             status: 'SUCCEEDED',
+            isRecurring: false,
           },
         });
       });

@@ -27,8 +27,24 @@ app.get('/api/v1/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Global error handler
+// Global error handler — maps Prisma-specific codes to clean HTTP responses
 app.use((err, req, res, next) => {
+  // Prisma: Record not found (safety net for controllers that miss it)
+  if (err.code === 'P2025') {
+    return res.status(404).json({
+      error: 'not_found',
+      message: err.meta?.cause || 'The requested resource was not found.',
+    });
+  }
+
+  // Prisma: Unique constraint violation (concurrent duplicate writes)
+  if (err.code === 'P2002') {
+    return res.status(409).json({
+      error: 'conflict',
+      message: `A resource with this ${err.meta?.target?.join(', ') || 'field'} already exists.`,
+    });
+  }
+
   console.error('❌ Server Error:', err);
   res.status(err.status || 500).json({
     error: err.message || 'Internal server error',
@@ -42,3 +58,5 @@ app.listen(PORT, () => {
   console.log(`   Public Auth: http://localhost:${PORT}/api/v1/public/auth`);
   console.log(`   Admin Auth: http://localhost:${PORT}/api/v1/admin/auth\n`);
 });
+// Watch reload trigger
+

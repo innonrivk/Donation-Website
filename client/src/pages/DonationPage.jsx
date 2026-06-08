@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Header from '../components/layout/Header';
 import HeroSection from '../components/layout/HeroSection';
 import Footer from '../components/layout/Footer';
@@ -6,8 +6,8 @@ import ProjectsSection from '../components/donation/ProjectsSection';
 import DonationGrid from '../components/donation/DonationGrid';
 import DonationProgramDetails from '../components/donation/DonationProgramDetails';
 import CheckoutModal from '../components/checkout/CheckoutModal';
-import { getContent } from '../services/api';
-import { FALLBACK_DONATION_CONTENT } from '../services/fallbackData';
+import { useCMS } from '../hooks/useCMS';
+import DOMPurify from 'dompurify';
 import './DonationPage.css';
 
 /**
@@ -17,36 +17,10 @@ import './DonationPage.css';
  * @returns {JSX.Element}
  */
 export default function DonationPage() {
-  const [content, setContent] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { data: content, isLoading: loading } = useCMS();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState(null);
   const [isRecurring, setIsRecurring] = useState(true);
-
-  useEffect(() => {
-    async function fetchContent() {
-      try {
-        const data = await getContent();
-        if (data && data.websiteContent && data.websiteContent.body) {
-          // Remove potential header duplicate line from raw body to keep text clean
-          data.websiteContent.body = data.websiteContent.body.replace(
-            /OpenmindProjects \(OMP\) is dedicated to building stronger communities[\s\S]*?community empowerment\.\s*\n*/i,
-            ""
-          );
-        }
-        setContent(data);
-      } catch (err) {
-        setError(err.message);
-        // Load clean localized static fallback context
-        setContent(FALLBACK_DONATION_CONTENT);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchContent();
-  }, []);
 
   /**
    * Triggers the Checkout/Subscription modal.
@@ -97,11 +71,10 @@ export default function DonationPage() {
               <h2 className="mission-content__title">
                 Our <span className="gradient-text">Mission</span>
               </h2>
-              <div className="mission-content__body">
-                {content.websiteContent.body.split('\n\n').map((paragraph, i) => (
-                  <p key={i}>{paragraph}</p>
-                ))}
-              </div>
+              <div
+                className="mission-content__body"
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content.websiteContent.body) }}
+              />
             </div>
           </div>
         </section>

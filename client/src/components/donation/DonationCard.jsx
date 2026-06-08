@@ -1,13 +1,10 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import './DonationCard.css';
 
 export default function DonationCard({ box, onDonate, isPopular = false, isExpanded = false, onToggleExpand }) {
   const [isHovered, setIsHovered] = useState(false);
+  const [scrollHeight, setScrollHeight] = useState(300);
   const perksRef = useRef(null);
-
-  if (box.isCustomAmount) {
-    return null; // Custom amount card is handled separately
-  }
 
   const perksList = Array.isArray(box.perks)
     ? box.perks
@@ -17,9 +14,15 @@ export default function DonationCard({ box, onDonate, isPopular = false, isExpan
 
   const isOpen = isExpanded || isHovered;
 
+  useEffect(() => {
+    if (perksRef.current) {
+      setScrollHeight(perksRef.current.scrollHeight);
+    }
+  }, [isOpen, box.perks, box.tierDetails]);
+
   // dynamic height: 120px is exact collapsed threshold to fit description and first 2 perks beautifully
   const dynamicHeight = isOpen
-    ? `${perksRef.current?.scrollHeight || 300}px`
+    ? `${scrollHeight}px`
     : '120px';
 
   const handleKeyDown = (e) => {
@@ -31,6 +34,10 @@ export default function DonationCard({ box, onDonate, isPopular = false, isExpan
       }
     }
   };
+
+  if (box.isCustomAmount) {
+    return null; // Custom amount card is handled separately
+  }
 
   return (
     <div

@@ -44,6 +44,7 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
           stripePaymentIntentId: paymentIntent.id,
           amount: amountPaid,
           status: 'SUCCEEDED',
+          isRecurring: false,
         },
       });
     });
@@ -113,6 +114,7 @@ async function handleInvoicePaymentSucceeded(invoice) {
           stripePaymentIntentId: invoice.payment_intent,
           amount: amountPaid,
           status: 'SUCCEEDED',
+          isRecurring: true,
         },
       });
 
@@ -204,6 +206,7 @@ async function handleInvoicePaymentFailed(invoice) {
         stripePaymentIntentId: invoice.payment_intent,
         amount: invoice.amount_due,
         status: 'FAILED',
+        isRecurring: true,
       },
     });
 
