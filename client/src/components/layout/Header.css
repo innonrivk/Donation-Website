@@ -65,7 +65,7 @@
   transition: all var(--transition-fast);
 }
 
-.header__nav-link:hover {
+.header__nav-link:not(.header__nav-link--cta):hover {
   color: var(--color-text-primary);
   background: var(--color-bg-glass);
 }

@@ -11,7 +11,6 @@ export default function OtpVerifyPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(60);
-  const [devOtp, setDevOtp] = useState(sessionStorage.getItem('dev_otp') || '');
   const inputRefs = useRef([]);
 
   // Get email from sessionStorage (set during signup)
@@ -100,16 +99,9 @@ export default function OtpVerifyPage() {
 
     try {
       const { signup } = await import('../services/api');
-      const result = await signup({ email, firstName: '', lastName: '', password });
+      await signup({ email, firstName: '', lastName: '', password });
       setResendCooldown(60);
       setError('');
-      if (result.devOtp) {
-        sessionStorage.setItem('dev_otp', result.devOtp);
-        setDevOtp(result.devOtp);
-      } else {
-        sessionStorage.removeItem('dev_otp');
-        setDevOtp('');
-      }
     } catch (err) {
       setError(err.message || 'Failed to resend code.');
     }
@@ -157,44 +149,6 @@ export default function OtpVerifyPage() {
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
             </svg>
             {error}
-          </div>
-        )}
-
-        {devOtp && (
-          <div style={{
-            padding: '10px 12px',
-            background: 'rgba(66, 133, 244, 0.08)',
-            border: '1px dashed var(--brand-blue)',
-            borderRadius: '6px',
-            marginBottom: '16px',
-            fontSize: '13px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            width: '100%',
-            boxSizing: 'border-box'
-          }}>
-            <span>✨ [Dev Mode] Code: <strong>{devOtp}</strong></span>
-            <button
-              type="button"
-              onClick={() => {
-                const parts = devOtp.split('');
-                setDigits(parts);
-                handleVerify(devOtp);
-              }}
-              style={{
-                background: 'var(--color-accent-gradient)',
-                color: 'white',
-                border: 'none',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                fontSize: '11px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
-            >
-              Autofill & Submit
-            </button>
           </div>
         )}
 

@@ -44,21 +44,21 @@ const stripeElementsOptions = {
   },
 };
 
-export default function CheckoutModal({ isOpen, onClose, amount }) {
+export default function CheckoutModal({ isOpen, onClose, amount, isRecurring = true }) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Complete Your Donation" size="lg">
       <div className="checkout">
         <div className="checkout__amount-banner">
-          <span className="checkout__amount-label">Monthly Donation</span>
+          <span className="checkout__amount-label">{isRecurring ? 'Monthly Donation' : 'One-time Donation'}</span>
           <span className="checkout__amount-value">
             <span className="checkout__currency">$</span>
             {amount}
-            <span className="checkout__period">/mo</span>
+            {isRecurring && <span className="checkout__period">/mo</span>}
           </span>
         </div>
 
         <Elements stripe={stripePromise} options={stripeElementsOptions}>
-          <StripeForm amount={amount} onClose={onClose} />
+          <StripeForm amount={amount} onClose={onClose} isRecurring={isRecurring} />
         </Elements>
       </div>
     </Modal>

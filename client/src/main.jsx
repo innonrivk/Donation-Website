@@ -6,6 +6,9 @@ import App from './App.jsx'
 
 const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'dummy-client-id'
 
+// Clean up any stale developer OTP verification codes stored in sessionStorage
+sessionStorage.removeItem('dev_otp');
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <GoogleOAuthProvider clientId={clientId}>

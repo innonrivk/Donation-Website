@@ -1,16 +1,9 @@
+import './lib/env.js';
 import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
-import rateLimit from 'express-rate-limit';
-import contentRoutes from './routes/content.js';
-import donationRoutes from './routes/donations.js';
-import webhookRoutes from './routes/webhooks.js';
-import authRoutes from './routes/auth.js';
-import subscriptionRoutes from './routes/subscriptions.js';
-import milestoneRoutes from './routes/milestones.js';
-
-dotenv.config();
+import publicRouter from './routes/public/index.js';
+import adminRouter from './routes/admin/index.js';
+import publicWebhooks from './routes/public/webhooks.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -18,49 +11,18 @@ const PORT = process.env.PORT || 3001;
 // Trust reverse proxy headers (e.g. Nginx, Vite proxy) for correct client IP detection in rate limiting
 app.set('trust proxy', 1);
 
-// Stripe webhooks need raw body, so mount BEFORE json middleware
-app.use('/api/v1/webhooks', webhookRoutes);
+// 1. Mount public raw Stripe webhooks BEFORE the global JSON parser middleware
+app.use('/api/v1/public/webhooks', publicWebhooks);
 
-// Middleware
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
-  credentials: true,
-}));
+// 2. Global body and cookie parsers
 app.use(express.json());
 app.use(cookieParser());
 
-// API Routes
-app.use('/api/v1/content', contentRoutes);
+// 3. Mount namespace routes
+app.use('/api/v1/public', publicRouter);
+app.use('/api/v1/admin', adminRouter);
 
-// Rate limit donation endpoints: 100 requests per IP per 15 minutes in production
-const donationLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 100 : 999999,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    error: 'rate_limited',
-    message: 'Too many donation attempts. Please try again in a few minutes.',
-  },
-});
-app.use('/api/v1/donations', donationLimiter, donationRoutes);
-
-// Auth routes — rate limited to 100 requests per IP per 15 minutes in production
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 100 : 999999,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    error: 'rate_limited',
-    message: 'Too many requests. Please try again later.',
-  },
-});
-app.use('/api/v1/auth', authLimiter, authRoutes);
-app.use('/api/v1/subscriptions', subscriptionRoutes);
-app.use('/api/v1/milestones', milestoneRoutes);
-
-// Health check
+// Health check endpoint (public/system monitoring)
 app.get('/api/v1/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
@@ -76,7 +38,7 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`\n🚀 Server running on http://localhost:${PORT}`);
   console.log(`   Health: http://localhost:${PORT}/api/v1/health`);
-  console.log(`   Content: http://localhost:${PORT}/api/v1/content`);
-  console.log(`   Auth: http://localhost:${PORT}/api/v1/auth\n`);
+  console.log(`   Public Content: http://localhost:${PORT}/api/v1/public/content`);
+  console.log(`   Public Auth: http://localhost:${PORT}/api/v1/public/auth`);
+  console.log(`   Admin Auth: http://localhost:${PORT}/api/v1/admin/auth\n`);
 });
-

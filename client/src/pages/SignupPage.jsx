@@ -52,11 +52,6 @@ export default function SignupPage() {
         // Shadow account — store email in sessionStorage for OTP page
         sessionStorage.setItem('otp_email', form.email);
         sessionStorage.setItem('otp_password', form.password);
-        if (result.devOtp) {
-          sessionStorage.setItem('dev_otp', result.devOtp);
-        } else {
-          sessionStorage.removeItem('dev_otp');
-        }
         navigate('/signup/verify-otp');
       } else if (result.status === 'CREATED') {
         navigate('/dashboard', { replace: true });

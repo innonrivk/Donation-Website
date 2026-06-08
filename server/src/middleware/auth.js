@@ -1,5 +1,12 @@
 import jwt from 'jsonwebtoken';
 
+/**
+ * Donor JWT secret — sourced from environment with a dev-only fallback.
+ *
+ * Why a fallback? During local development, .env may not always be configured.
+ * The startup guard in lib/env.js prevents production boots with missing secrets,
+ * so this fallback only applies in dev/test environments.
+ */
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret-change-in-production';
 
 /**

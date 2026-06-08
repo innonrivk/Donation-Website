@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
@@ -7,6 +8,9 @@ async function main() {
 
   // ── Cleanup existing data (order matters for FK constraints) ──
   await prisma.vote.deleteMany();
+  await prisma.claimedMilestone.deleteMany();
+  await prisma.transaction.deleteMany();
+  await prisma.user.deleteMany();
   await prisma.piggyBank.deleteMany();
   await prisma.projectDetail.deleteMany();
   await prisma.donationMilestone.deleteMany();
@@ -14,6 +18,27 @@ async function main() {
   await prisma.tier.deleteMany();
   await prisma.websiteContent.deleteMany();
   console.log('  🧹 Cleaned existing data');
+
+  // ── Seed Admin User ──
+  const adminEmail = 'admin@openmindprojects.org';
+  const rawAdminPassword = process.env.SEED_ADMIN_PASSWORD;
+  if (!rawAdminPassword && process.env.NODE_ENV === 'production') {
+    throw new Error('SEED_ADMIN_PASSWORD environment variable is required in production to seed admin.');
+  }
+  const adminPassword = rawAdminPassword || 'adminpassword123';
+  const adminPasswordHash = await bcrypt.hash(adminPassword, 12);
+  await prisma.user.create({
+    data: {
+      email: adminEmail,
+      firstName: 'System',
+      lastName: 'Administrator',
+      role: 'ADMIN',
+      password: adminPasswordHash,
+      country: 'Global',
+    },
+  });
+  console.log('  ✅ Admin user seeded');
+
 
   // ── Seed Tiers ──
   await prisma.tier.createMany({

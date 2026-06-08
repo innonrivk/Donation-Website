@@ -28,6 +28,7 @@ export default function DonationReceipt({
   tierPerks = [],
   showPrintButton = true,
   onClose,
+  isRecurring = true,
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -203,12 +204,12 @@ export default function DonationReceipt({
           {/* Amount Highlight Row */}
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 8px', background: 'rgba(66, 133, 244, 0.06)', borderTop: '1px solid rgba(66,133,244,0.15)', borderBottom: '1px solid rgba(66,133,244,0.15)', margin: '2px 0' }}>
             <span style={{ fontWeight: '600' }}>Donation Amount:</span>
-            <strong style={{ color: 'var(--brand-blue)', fontSize: '14.5px', fontWeight: '800' }}>${amount}.00 / Month</strong>
+            <strong style={{ color: 'var(--brand-blue)', fontSize: '14.5px', fontWeight: '800' }}>${amount}.00{isRecurring ? ' / Month' : ''}</strong>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: 'rgba(66, 133, 244, 0.02)', borderBottom: '1px solid rgba(66,133,244,0.06)' }}>
-            <span>Subscription Tier:</span>
-            <strong style={{ color: 'var(--color-text-primary)' }}>✦ {tierName}</strong>
+            <span>{isRecurring ? 'Subscription Tier:' : 'Donation Type:'}</span>
+            <strong style={{ color: 'var(--color-text-primary)' }}>{isRecurring ? `✦ ${tierName}` : 'One-Time Donation'}</strong>
           </div>
         </div>
 

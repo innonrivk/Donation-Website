@@ -1,4 +1,4 @@
-const API_BASE = '/api/v1';
+const API_BASE = '/api/v1/public';
 
 /**
  * Fetch wrapper with structured error handling.
@@ -39,6 +39,13 @@ export function getContent() {
 // ── Donations ──
 export function createSubscription(data) {
   return request('/donations/subscribe', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function createOneTimeDonation(data) {
+  return request('/donations/one-time', {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -124,6 +131,19 @@ export function updateSubscription(data) {
 
 export function cancelSubscription() {
   return request('/subscriptions/cancel', { method: 'POST' });
+}
+
+export function cancelScheduledSubscription() {
+  return request('/subscriptions/cancel-scheduled', { method: 'POST' });
+}
+
+/**
+ * Manually triggers a mock billing cycle rollover.
+ * Restricted to MOCK_MODE only — returns 403 in production.
+ * Used by the dev "Simulate Rollover" button and integration tests.
+ */
+export function simulateRollover() {
+  return request('/subscriptions/simulate-rollover', { method: 'POST' });
 }
 
 // ── Milestones ──

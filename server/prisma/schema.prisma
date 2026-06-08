@@ -40,6 +40,8 @@ model User {
   stripeCustomerId   String?             @unique @map("stripe_customer_id")
   monthlyAmount      Int                 @default(0) @map("monthly_amount")
   isActive           Boolean             @default(true) @map("is_active")
+  scheduledAmount    Int?                @map("scheduled_amount")
+  scheduledAmountEffectiveDate DateTime? @map("scheduled_amount_effective_date")
   createdAt          DateTime            @default(now()) @map("created_at")
   updatedAt          DateTime            @updatedAt @map("updated_at")
   transactions       Transaction[]
@@ -59,6 +61,7 @@ model Transaction {
   createdAt              DateTime          @default(now()) @map("created_at")
   user                   User              @relation(fields: [userId], references: [id])
 
+  @@index([userId, createdAt(sort: Desc)])
   @@map("transactions")
 }
 
@@ -80,6 +83,7 @@ model DonationBox {
   tierDetails    String  @default("") @map("tier_details")
   buttonText     String  @default("Donate") @map("button_text")
   isCustomAmount Boolean @default(false) @map("is_custom_amount")
+  isRecurring    Boolean @default(true) @map("is_recurring")
   isActive       Boolean @default(true) @map("is_active")
   displayOrder   Int     @default(0) @map("display_order")
 
