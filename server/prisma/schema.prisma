@@ -186,3 +186,23 @@ model UserOtp {
   @@map("user_otps")
 }
 
+enum SectionIdentifier {
+  WELCOME
+  ACTIVE_PROJECTS
+  DONATION_BOXES
+  DONATION_TIERS
+  DONATION_ROADMAP
+  TANGIBLE_IMPACT
+}
+
+model SiteText {
+  id        String            @id @default(uuid())
+  key       String            @unique
+  value     String
+  section   SectionIdentifier
+  updatedAt DateTime          @updatedAt @map("updated_at")
+
+  @@index([section])
+  @@map("site_text")
+}
+

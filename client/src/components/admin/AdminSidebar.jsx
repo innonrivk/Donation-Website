@@ -15,11 +15,12 @@ export default function AdminSidebar() {
   const location = useLocation();
 
   const navItems = [
-    { label: 'Website Text', path: '/admin/dashboard', icon: '📝' },
+    { label: 'Manage Site Copy', path: '/admin/dashboard', icon: '💬' },
     { label: 'Donation Boxes', path: '/admin/dashboard/donation-boxes', icon: '🎁' },
     { label: 'Tiers', path: '/admin/dashboard/tiers', icon: '⭐' },
     { label: 'Milestones', path: '/admin/dashboard/milestones', icon: '🏆' },
     { label: 'Transactions', path: '/admin/dashboard/transactions', icon: '📊' },
+    { label: 'Admin Settings', path: '/admin/dashboard/settings', icon: '⚙️' },
   ];
 
   return (

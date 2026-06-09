@@ -9,12 +9,14 @@ import {
   updateDonationBox,
   deleteDonationBox,
 } from '../../controllers/admin/adminContentController.js';
+import { updateContent as updateSiteText } from '../../controllers/admin/contentController.js';
 
 const router = Router();
 
 // Website Content
 router.get('/', getContents);
 router.post('/', createContent);
+router.put('/site-text', updateSiteText);
 router.put('/:id', updateContent);
 router.delete('/:id', deleteContent);
 

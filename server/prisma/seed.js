@@ -25,7 +25,7 @@ async function main() {
   if (!rawAdminPassword && process.env.NODE_ENV === 'production') {
     throw new Error('SEED_ADMIN_PASSWORD environment variable is required in production to seed admin.');
   }
-  const adminPassword = rawAdminPassword || 'adminpassword123';
+  const adminPassword = rawAdminPassword || '12345678';
   const adminPasswordHash = await bcrypt.hash(adminPassword, 12);
   await prisma.user.create({
     data: {
@@ -135,6 +135,85 @@ async function main() {
     },
   });
   console.log('  ✅ Website content seeded');
+
+  // ── Seed SiteText Content (New Dynamic Fields) ──
+  await prisma.siteText.deleteMany();
+  await prisma.siteText.createMany({
+    data: [
+      // WELCOME Section
+      {
+        key: 'welcome_headline',
+        value: 'Empower Communities, Transform Lives',
+        section: 'WELCOME',
+      },
+      {
+        key: 'welcome_subheadline',
+        value: 'Your monthly donation creates lasting impact through sustainable projects worldwide',
+        section: 'WELCOME',
+      },
+      {
+        key: 'welcome_hero_intro',
+        value: 'By becoming a monthly donor, you join a movement of changemakers who believe in consistent, long-term impact. Your contribution — no matter the size — helps us plan ahead, scale our projects, and deliver measurable results to the communities we serve.\n\n10% of all donations go into our community "Piggy Banks," where you and fellow donors vote on which projects receive additional funding boosts. Together, we decide where your impact grows.',
+        section: 'WELCOME',
+      },
+      // ACTIVE_PROJECTS Section
+      {
+        key: 'projects_title',
+        value: 'Active Projects',
+        section: 'ACTIVE_PROJECTS',
+      },
+      {
+        key: 'projects_intro',
+        value: 'Your donations directly fund these community-driven initiatives. Track progress and see the real impact of your contribution.',
+        section: 'ACTIVE_PROJECTS',
+      },
+      // DONATION_BOXES Section
+      {
+        key: 'boxes_title',
+        value: 'Choose Your Donation',
+        section: 'DONATION_BOXES',
+      },
+      {
+        key: 'boxes_cta',
+        value: 'Select a plan that works for you. Every contribution, big or small, helps fund community projects and create lasting change.',
+        section: 'DONATION_BOXES',
+      },
+      // DONATION_TIERS Section
+      {
+        key: 'tiers_title',
+        value: 'Donation Tiers',
+        section: 'DONATION_TIERS',
+      },
+      {
+        key: 'tiers_intro',
+        value: 'Our tiers ensure transparency and show how every dollar level supports specific community goals.',
+        section: 'DONATION_TIERS',
+      },
+      // DONATION_ROADMAP Section
+      {
+        key: 'roadmap_title',
+        value: 'Monthly Donation Roadmap',
+        section: 'DONATION_ROADMAP',
+      },
+      {
+        key: 'roadmap_intro',
+        value: 'Track the path of your donation from initial funding to on-the-ground project deployment.',
+        section: 'DONATION_ROADMAP',
+      },
+      // TANGIBLE_IMPACT Section
+      {
+        key: 'impact_title',
+        value: 'Tangible Impact Objectives',
+        section: 'TANGIBLE_IMPACT',
+      },
+      {
+        key: 'impact_intro',
+        value: 'We focus on clear, measurable impact metrics. See what achievements our donor community has unlocked.',
+        section: 'TANGIBLE_IMPACT',
+      },
+    ],
+  });
+  console.log('  ✅ Dynamic site text seeded');
 
   // ── Seed Projects (real community programs) ──
   await prisma.projectDetail.createMany({

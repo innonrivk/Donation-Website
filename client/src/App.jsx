@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { AdminAuthProvider } from './context/AdminAuthContext';
+import { ContentProvider } from './context/ContentContext';
 import PrivateRoute from './components/router/PrivateRoute';
 import PublicRoute from './components/router/PublicRoute';
 import AdminProtectedRoute from './components/router/AdminProtectedRoute';
@@ -16,14 +17,14 @@ import FullPageSpinner from './components/ui/FullPageSpinner';
 import './App.css';
 
 // Lazy load admin pages to keep the donor bundle lightweight
-const AdminLoginPage = React.lazy(() => import('./pages/AdminLoginPage'));
 const AdminDashboardPage = React.lazy(() => import('./pages/AdminDashboardPage'));
 
 function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AdminAuthProvider>
+    <ContentProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <AdminAuthProvider>
           <Routes>
             {/* Public pages */}
             <Route path="/" element={<DonationPage />} />
@@ -39,14 +40,6 @@ function App() {
             <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
 
             {/* Admin routes */}
-            <Route
-              path="/admin/login"
-              element={
-                <Suspense fallback={<FullPageSpinner />}>
-                  <AdminLoginPage />
-                </Suspense>
-              }
-            />
             <Route
               path="/admin/dashboard/*"
               element={
@@ -64,6 +57,7 @@ function App() {
         </AdminAuthProvider>
       </AuthProvider>
     </BrowserRouter>
+    </ContentProvider>
   );
 }
 

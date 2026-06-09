@@ -4,6 +4,8 @@ import { z } from 'zod';
 import prisma from '../../lib/prisma.js';
 import { issueAdminToken } from '../../middleware/adminAuth.js';
 import { ErrorCodes } from '../../lib/errors.js';
+import crypto from 'crypto';
+import { sendEmail } from '../../services/email.js';
 
 const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || 'dev-admin-secret-DO-NOT-USE-IN-PROD';
 
@@ -144,6 +146,11 @@ export function adminLogout(req, res) {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'Strict',
   });
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'Strict',
+  });
   return res.status(200).json({
     status: 'LOGGED_OUT',
     message: 'Logged out successfully.',
@@ -173,6 +180,60 @@ export async function getMe(req, res, next) {
     }
 
     return res.status(200).json({
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Upgrade a valid donor session to an admin session.
+ * 
+ * Why? Decouples public login from admin token signing. Ensures admin secrets
+ * remain isolated to admin-specific controllers and endpoints.
+ * 
+ * @param {import('express').Request} req - Express request.
+ * @param {import('express').Response} res - Express response.
+ * @param {import('express').NextFunction} next - Express next middleware.
+ */
+export async function upgradeSession(req, res, next) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+    });
+
+    if (!user || user.role !== 'ADMIN' || !user.isActive) {
+      return res.status(403).json({
+        error: 'forbidden',
+        message: 'Insufficient privileges or account deactivated.',
+      });
+    }
+
+    const accessToken = issueAdminToken(user);
+
+    const refreshToken = jwt.sign(
+      { userId: user.id, email: user.email, role: user.role },
+      ADMIN_JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.cookie('adminRefreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return res.status(200).json({
+      status: 'UPGRADED',
+      accessToken,
       user: {
         id: user.id,
         email: user.email,

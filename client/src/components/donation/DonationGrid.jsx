@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import DonationCard from './DonationCard';
 import CustomAmountCard from './CustomAmountCard';
+import { useContent } from '../../context/ContentContext';
+import { CONTENT_KEYS } from '../../lib/contentKeys';
+import { formatContentInline } from '../../utils/formatContent';
 import './DonationGrid.css';
 
 export default function DonationGrid({ boxes, onDonate }) {
@@ -20,17 +23,12 @@ export default function DonationGrid({ boxes, onDonate }) {
     <section className="donation-section section" id="donate">
       <div className="container">
         <div className="donation-section__header">
-          <span className="donation-section__label">Make an Impact</span>
           <h2 className="donation-section__title">
-            Choose Your <span className="gradient-text">Donation</span>
+            {formatContentInline(useContent(CONTENT_KEYS.BOXES_TITLE, 'Choose Your **Donation**'))}
           </h2>
           <p className="donation-section__desc">
-            Select a plan that works for you. Every contribution, big or small, helps fund
-            community projects and create lasting change.
+            {formatContentInline(useContent(CONTENT_KEYS.BOXES_CTA, 'Select a plan that works for you. Every contribution, big or small, helps fund community projects and create lasting change.'))}
           </p>
-          <div className="donation-section__note">
-            <strong>💡 Note:</strong> If you donate without having registered, you can easily access your dashboard and achievements at any time! Simply sign up with the exact same email address you used for your donation.
-          </div>
         </div>
 
         <div className="donation-grid">

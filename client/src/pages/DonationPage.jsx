@@ -7,7 +7,9 @@ import DonationGrid from '../components/donation/DonationGrid';
 import DonationProgramDetails from '../components/donation/DonationProgramDetails';
 import CheckoutModal from '../components/checkout/CheckoutModal';
 import { useCMS } from '../hooks/useCMS';
-import DOMPurify from 'dompurify';
+import { useContent } from '../context/ContentContext';
+import { CONTENT_KEYS } from '../lib/contentKeys';
+import { formatContent } from '../utils/formatContent';
 import './DonationPage.css';
 
 /**
@@ -52,7 +54,7 @@ export default function DonationPage() {
   return (
     <div className="donation-page">
       <Header />
-      <HeroSection content={content?.websiteContent} />
+      <HeroSection />
 
       {/* Project descriptions — between hero and donation grid */}
       <ProjectsSection projects={content?.projects || []} />
@@ -64,21 +66,18 @@ export default function DonationPage() {
       />
 
       {/* Mission / About section — placed between Grid and Tiers */}
-      {content?.websiteContent?.body && (
-        <section className="mission-section section">
-          <div className="container">
-            <div className="mission-content">
-              <h2 className="mission-content__title">
-                Our <span className="gradient-text">Mission</span>
-              </h2>
-              <div
-                className="mission-content__body"
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content.websiteContent.body) }}
-              />
+      <section className="mission-section section">
+        <div className="container">
+          <div className="mission-content">
+            <h2 className="mission-content__title">
+              Our <span className="gradient-text">Mission</span>
+            </h2>
+            <div className="mission-content__body">
+              {formatContent(useContent(CONTENT_KEYS.WELCOME_HERO_INTRO, 'By becoming a monthly donor, you join a movement of changemakers who believe in consistent, long-term impact. Your contribution — no matter the size — helps us plan ahead, scale our projects, and deliver measurable results to the communities we serve.\n\n10% of all donations go into our community "Piggy Banks," where you and fellow donors vote on which projects receive additional funding boosts. Together, we decide where your impact grows.'))}
             </div>
           </div>
-        </section>
-      )}
+        </div>
+      </section>
 
       {/* Donation tiers & milestones */}
       <DonationProgramDetails

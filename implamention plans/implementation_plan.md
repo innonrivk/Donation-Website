@@ -1,87 +1,96 @@
-# OpenmindProjects CMS: Frontend Implementation Plan
+# Implementation Plan: Admin Settings & Custom Copy Formatting
 
-This plan outlines the architecture and step-by-step implementation strategy for the frontend React application to seamlessly integrate with the new Monolithic CMS backend. It emphasizes security, strict validation, performance, and a robust developer experience using a modern React/TypeScript stack.
-
-> [!IMPORTANT]
-> **User Review Required**
-> Please review the chosen libraries in Phase 1 and 3 (TanStack Query, Axios, React Hook Form, Zod, and TipTap). These will need to be installed as they are currently not in your `package.json`.
-
-## Open Questions
-
-1. **Rich Text Editor Choice:** I have recommended **TipTap** for the `WebsiteContent.body` editor as it outputs clean HTML and is highly customizable. Does this align with your preferences, or would you prefer a simpler drop-in like React-Quill?
-2. **UI Framework/Styling:** You mentioned "Traditional CSS" in your global rules, but often admin dashboards use component libraries (like Radix UI primitives or simple Tailwind/CSS modules) for forms and toasts. We will stick to vanilla CSS with CSS Modules and Framer Motion for animations unless otherwise specified.
-3. **TypeScript:** The prompt mentions TypeScript, but much of the backend is JS. We will implement the frontend utilizing JSDoc with strict type definitions (or `.ts/.tsx` if your Vite config supports it) to ensure type safety.
+This plan details the design and architecture to:
+1. Allow portal administrators to update their email and password from the Admin Settings, secured by OTP.
+2. Remove the old "Website Text" tab and mount the new "Site Copy" page at the dashboard root (`/admin/dashboard`).
+3. Replace the `ReactMarkdown` parser with a custom, lightweight text formatting utility to support **Blue/Teal gradient**, **Gold gradient**, **standard bold**, and **underline** options on layout headlines and descriptions.
 
 ---
 
-## Phase 1: State Management & Public View Consumption
+## Proposed Changes
 
-**Objective:** Efficiently fetch, cache, and distribute the monolithic CMS configuration payload across the public site.
+### Phase 1: Sidebar & Route Re-organization
 
-*   **Setup Axios Instance:** Create a dedicated, configured `axios` instance (`src/lib/api.js`) pointing to `/api/v1/public/content` and `/api/v1/admin/content`. This ensures base URLs and timeouts are centralized.
-*   **Integrate TanStack Query (React Query):** Introduce `@tanstack/react-query` to handle caching, background refetching, and deduping of the monolithic public content payload.
-*   **Global CMS Hook (`useCMS`):** Create a custom hook that wraps the React Query call to the public `content` endpoint.
-    *   This hook will provide global access to `WebsiteContent`, `DonationBoxes` (with nested Tier perks), and `Milestones` without prop-drilling.
-*   **Hydration & Loading States:** Implement a smooth, Framer Motion-powered skeleton loader or fade-in transition at the layout level to handle the initial `isLoading` state from React Query, preventing layout shifts and UI flashing.
+#### [MODIFY] [AdminSidebar.jsx](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/components/admin/AdminSidebar.jsx)
+- Remove the old "Website Text" navigation item (path `/admin/dashboard` linked to `CMSWebsiteContent`).
+- Rename "Site Copy (New)" to "Manage Site Copy" and change its path to the root admin path `/admin/dashboard`.
+- Add "Admin Settings" navigation link pointing to `/admin/dashboard/settings` with a gear icon `⚙️`.
 
----
-
-## Phase 2: Admin Authentication Guard & Security Integrity
-
-**Objective:** Secure the React Router administration dashboard and prevent cross-site request vulnerabilities.
-
-*   **Protected Route Component (`<ProtectedRoute />`):** Create a layout wrapper for all `/admin/*` routes.
-    *   It will check the current admin session state (stored in context/memory).
-    *   If no valid session is found, it will safely redirect to `/admin/login` using React Router's `Navigate`.
-*   **Axios Security Interceptors:**
-    *   Configure an interceptor on the admin Axios instance to automatically attach the `Authorization: Bearer <token>` header to all outbound requests.
-    *   Include standard CSRF/security headers (e.g., `X-Requested-With: XMLHttpRequest`).
-*   **Session Persistence & Expiry Handling:**
-    *   Implement an Axios response interceptor that listens for `401 Unauthorized` responses (specifically checking for expired tokens).
-    *   Upon detecting an expired session, the interceptor will clear the local session state and route the user back to the login interface with a "Session Expired" toast notification.
+#### [MODIFY] [AdminDashboardPage.jsx](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/pages/AdminDashboardPage.jsx)
+- Remove the import and routing for the old `CMSWebsiteContent` component.
+- Mount the new `EditContentPage` at the dashboard root (`/` route under `/admin/dashboard/*`).
+- Mount `<Route path="/settings" element={<AdminSettingsPage />} />` under `/admin/dashboard/*`.
 
 ---
 
-## Phase 3: Dynamic Forms & Strict Client-Side Validation
+### Phase 2: Custom Copy Formatting Utility (CSS & JS)
 
-**Objective:** Build robust, user-friendly editorial interfaces for managing site text and configurations.
+#### [NEW] [formatContent.jsx](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/utils/formatContent.jsx)
+Implement a lightweight React utility `formatContent(text)` to parse custom formatting markers:
+- `**Text**` -> Primary Blue/Teal Gradient: `<span className="gradient-text">Text</span>`
+- `$$Text$$` -> Gold Gradient: `<span className="gradient-gold">Text</span>`
+- `*Text*` -> Standard Bold: `<strong className="bold-text">Text</strong>`
+- `__Text__` -> Underline: `<span className="underline-text">Text</span>`
+- Supports line breaks `\n` and paragraph breaks `\n\n` natively without external parser dependencies.
 
-*   **React Hook Form Integration:** Utilize `react-hook-form` to manage complex form states (especially for Tiers and Donation Boxes) without triggering unnecessary re-renders.
-*   **Zod Client-Side Validation:**
-    *   Install `zod` and `@hookform/resolvers/zod`.
-    *   Mirror the backend schemas (`WebsiteContentSchema`, `DonationBoxSchema`, etc.) on the frontend.
-    *   This ensures that formatting errors (e.g., negative amounts, missing titles) are caught instantly *before* API flight.
-*   **Rich Text Editor (TipTap):**
-    *   Implement **TipTap** for editing `WebsiteContent.body`. It provides a headless architecture, allowing us to style the toolbar to match the OpenmindProjects brand guide perfectly.
-*   **Dynamic Array Fields (`Tier.perks`):**
-    *   Use React Hook Form's `useFieldArray` to allow admins to dynamically add, remove, and reorder perks within a Tier configuration seamlessly.
+#### [MODIFY] [index.css](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/index.css)
+Add styling classes for the new formatting markers in global CSS:
+- `.gradient-gold`: Gold gradient text overlay using `--brand-yellow` gradient steps.
+- `.underline-text`: Text decoration underline with styled text offset.
+- `.bold-text`: Explicit `font-weight: 700`.
+
+#### [MODIFY] Landing Page Components
+Replace `<ReactMarkdown>` blocks with `{formatContent(useContent(...))}` in:
+- [HeroSection.jsx](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/components/layout/HeroSection.jsx)
+- [DonationPage.jsx](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/pages/DonationPage.jsx)
+- [ProjectsSection.jsx](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/components/donation/ProjectsSection.jsx)
+- [DonationGrid.jsx](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/components/donation/DonationGrid.jsx)
+- [DonationProgramDetails.jsx](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/components/donation/DonationProgramDetails.jsx)
+
+#### [MODIFY] [EditContentPage.jsx](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/pages/admin/EditContentPage.jsx)
+- Update field descriptions in `FIELDS_BY_SECTION` to explain the availability of primary gradient (`**`), gold gradient (`$$`), standard bold (`*`), and underline (`__`) markers.
+- Update `MarkdownHelper` component sidebar guide to showcase all four formatting tokens and their rendered output.
 
 ---
 
-## Phase 4: API Resilience, Error Mapping & Optimistic UI Updates
+### Phase 3: Admin Auth Context & Settings UI
 
-**Objective:** Provide a seamless, descriptive user experience when saving content or encountering network blocks.
+#### [MODIFY] [AdminAuthContext.jsx](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/context/AdminAuthContext.jsx)
+Introduce `updateAdminState` to the context state value so settings updates dynamically rotate in-memory admin details (JWT token and profile metadata) without causing session interruptions.
 
-*   **Global Error Mapper:**
-    *   Create a utility that catches Axios `error.response.data` and translates it into UI-friendly actions.
-    *   Map `400 Validation Error` (with Zod field details) directly back to `react-hook-form`'s `setError` function to highlight specific inputs.
-*   **Conflict Resolution (409):**
-    *   Specifically handle the `409 Conflict` (Prisma `P2002`) we implemented on the backend. If an admin tries to create a duplicate Tier or Box, trigger an actionable toast alert explaining the conflict.
-*   **Visual Feedback & Spinners:**
-    *   Tie form submission buttons to React Hook Form's `isSubmitting` state to show inline spinners and disable double-clicks.
-    *   Use React Query's `useMutation` for admin writes, leveraging `onSuccess` to invalidate queries and trigger positive, branded toast notifications.
-    *   Apply subtle Framer Motion transitions to success/error state changes to make the interface feel responsive and premium.
+#### [NEW] [AdminSettingsPage.jsx](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/pages/admin/AdminSettingsPage.jsx)
+Build a settings panel dashboard for credentials:
+- Accordion transitions using `framer-motion`.
+- Change Password form with step-based flow (Send OTP code -> Verify and update password).
+- Change Email form with validation (Enter new email -> Send OTP -> Confirm and rotate).
+- Action loaders and dynamic validation error messages.
+
+#### [NEW] [AdminSettingsPage.css](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/client/src/pages/admin/AdminSettingsPage.css)
+Style rules utilizing global variables, shadows, transitions, and hover effects matching the Google light brand theme.
+
+---
+
+### Phase 4: Backend Settings Controllers & Routes
+
+#### [MODIFY] [adminAuthController.js](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/server/src/controllers/admin/adminAuthController.js)
+Write four settings controllers:
+- `requestPasswordOtp`: Sends OTP code to current email for password change.
+- `changePassword`: Compares OTP and writes hashed new password.
+- `requestEmailOtp`: Validates new email uniqueness, dispatches OTP.
+- `changeEmail`: Validates OTP, updates email in db, rotates JWT tokens.
+
+#### [MODIFY] [auth.js](file:///c:/Users/Lenovo/OneDrive/Documents/Donation%20site/Donation-Site-Project/server/src/routes/admin/auth.js)
+Mount the routes under the `/auth` router protected by the `requireAdminAuth` middleware.
 
 ---
 
 ## Verification Plan
 
-### Automated/Structural Verification
-- Verify all required libraries (`axios`, `@tanstack/react-query`, `react-hook-form`, `zod`, `@tiptap/react`) are successfully installed.
-- Verify the Axios interceptors correctly attach the Bearer token to admin routes and catch 401s.
+### Automated Verification
+- Verify that standard unit and integration test suites run successfully using `npm test`.
 
 ### Manual Verification
-1.  **Public Payload:** Load the public homepage and verify the monolithic payload is fetched once, cached by React Query, and distributed via `useCMS()` without layout shift.
-2.  **Admin Routing:** Attempt to navigate to `/admin/dashboard` while logged out and verify the redirect to `/admin/login`.
-3.  **Validation:** In the Admin Dashboard, try to submit a Donation Box with a negative amount and verify the Zod client-side error appears instantly.
-4.  **Error Handling:** Force a backend 409 Conflict (e.g., duplicate title if constrained) and verify the UI catches it gracefully with a Toast notification rather than crashing.
+1. Open the Admin Dashboard: verify the old "Website Text" link is gone, and root dashboard URL `/admin/dashboard` directly loads the new copy manager.
+2. Edit welcome headline to include: `**Primary**`, `$$Gold$$`, `*Bold*`, and `__Underline__`. Save edits.
+3. Open the landing page: verify the layout renders correct styles (gradient highlights, bold text, underlines) without shift or rendering errors.
+4. Open Admin Settings: test password and email rotations via OTP codes, confirming profile updates without session failure.

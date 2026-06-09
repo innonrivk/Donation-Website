@@ -52,7 +52,7 @@ export async function login(req, res, next) {
     issueTokenCookie(res, user);
     return res.status(200).json({
       status: 'LOGGED_IN',
-      user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName },
+      user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role },
     });
   } catch (error) {
     next(error);
@@ -136,7 +136,7 @@ export async function googleLogin(req, res, next) {
     issueTokenCookie(res, user);
     return res.status(200).json({
       status: 'LOGGED_IN',
-      user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName },
+      user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role },
     });
   } catch (error) {
     next(error);
@@ -153,6 +153,11 @@ export async function googleLogin(req, res, next) {
  */
 export function logout(req, res) {
   res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'Strict',
+  });
+  res.clearCookie('adminRefreshToken', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'Strict',
@@ -229,6 +234,7 @@ export async function getMe(req, res, next) {
         country: user.country,
         stripeCustomerId: user.stripeCustomerId,
         createdAt: user.createdAt,
+        role: user.role,
       },
       tier: currentTier,
       monthlyAmount: monthlyAmountDollars,

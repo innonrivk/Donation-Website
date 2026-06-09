@@ -4,6 +4,7 @@ import assert from 'node:assert';
 import jwt from 'jsonwebtoken';
 import { requireAdminAuth } from '../../src/middleware/adminAuth.js';
 import { requireAuth } from '../../src/middleware/auth.js';
+import prisma from '../../src/lib/prisma.js';
 
 // Test secrets
 const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || 'dev-admin-secret-DO-NOT-USE-IN-PROD';
@@ -27,46 +28,46 @@ function mockRes() {
 }
 
 test('requireAdminAuth middleware tests', async (t) => {
-  await t.test('returns 401 when Authorization header is missing', () => {
+  await t.test('returns 401 when Authorization header is missing', async () => {
     const req = { headers: {} };
     const res = mockRes();
     let nextCalled = false;
     const next = () => { nextCalled = true; };
 
-    requireAdminAuth(req, res, next);
+    await requireAdminAuth(req, res, next);
 
     assert.strictEqual(res.statusCode, 401);
     assert.strictEqual(res.body.error, 'not_authenticated');
     assert.strictEqual(nextCalled, false);
   });
 
-  await t.test('returns 401 when Authorization is not Bearer', () => {
+  await t.test('returns 401 when Authorization is not Bearer', async () => {
     const req = { headers: { authorization: 'Basic YWRtaW46cGFzc3dvcmQ=' } };
     const res = mockRes();
     let nextCalled = false;
     const next = () => { nextCalled = true; };
 
-    requireAdminAuth(req, res, next);
+    await requireAdminAuth(req, res, next);
 
     assert.strictEqual(res.statusCode, 401);
     assert.strictEqual(res.body.error, 'not_authenticated');
     assert.strictEqual(nextCalled, false);
   });
 
-  await t.test('returns 401 when Bearer token is invalid/tampered', () => {
+  await t.test('returns 401 when Bearer token is invalid/tampered', async () => {
     const req = { headers: { authorization: 'Bearer invalid.token.signature' } };
     const res = mockRes();
     let nextCalled = false;
     const next = () => { nextCalled = true; };
 
-    requireAdminAuth(req, res, next);
+    await requireAdminAuth(req, res, next);
 
     assert.strictEqual(res.statusCode, 401);
     assert.strictEqual(res.body.error, 'invalid_token');
     assert.strictEqual(nextCalled, false);
   });
 
-  await t.test('returns 403 when token is valid but role is not ADMIN', () => {
+  await t.test('returns 403 when token is valid but role is not ADMIN', async () => {
     const token = jwt.sign(
       { userId: 'user-123', email: 'donor@gmail.com', role: 'DONOR' },
       ADMIN_JWT_SECRET
@@ -76,14 +77,14 @@ test('requireAdminAuth middleware tests', async (t) => {
     let nextCalled = false;
     const next = () => { nextCalled = true; };
 
-    requireAdminAuth(req, res, next);
+    await requireAdminAuth(req, res, next);
 
     assert.strictEqual(res.statusCode, 403);
     assert.strictEqual(res.body.error, 'forbidden');
     assert.strictEqual(nextCalled, false);
   });
 
-  await t.test('returns 401 when token has expired', () => {
+  await t.test('returns 401 when token has expired', async () => {
     const token = jwt.sign(
       { userId: 'admin-123', email: 'admin@omp.org', role: 'ADMIN' },
       ADMIN_JWT_SECRET,
@@ -94,7 +95,7 @@ test('requireAdminAuth middleware tests', async (t) => {
     let nextCalled = false;
     const next = () => { nextCalled = true; };
 
-    requireAdminAuth(req, res, next);
+    await requireAdminAuth(req, res, next);
 
     assert.strictEqual(res.statusCode, 401);
     assert.strictEqual(res.body.error, 'invalid_token');
@@ -102,9 +103,26 @@ test('requireAdminAuth middleware tests', async (t) => {
     assert.strictEqual(nextCalled, false);
   });
 
-  await t.test('calls next() and attaches user on valid ADMIN token', () => {
+  await t.test('calls next() and attaches user on valid ADMIN token', async () => {
+    let adminUser = await prisma.user.findFirst({
+      where: { email: 'admin@openmindprojects.org' },
+    });
+
+    if (!adminUser) {
+      adminUser = await prisma.user.create({
+        data: {
+          email: 'admin@openmindprojects.org',
+          firstName: 'System',
+          lastName: 'Administrator',
+          role: 'ADMIN',
+          isActive: true,
+          skipWelcomeEmail: true,
+        },
+      });
+    }
+
     const token = jwt.sign(
-      { userId: 'admin-123', email: 'admin@omp.org', role: 'ADMIN' },
+      { userId: adminUser.id, email: adminUser.email, role: 'ADMIN' },
       ADMIN_JWT_SECRET
     );
     const req = { headers: { authorization: `Bearer ${token}` } };
@@ -112,13 +130,13 @@ test('requireAdminAuth middleware tests', async (t) => {
     let nextCalled = false;
     const next = () => { nextCalled = true; };
 
-    requireAdminAuth(req, res, next);
+    await requireAdminAuth(req, res, next);
 
     assert.strictEqual(nextCalled, true);
     assert.deepStrictEqual(req.adminUser, {
-      userId: 'admin-123',
-      email: 'admin@omp.org',
-      role: 'ADMIN',
+      userId: adminUser.id,
+      email: adminUser.email,
+      role: adminUser.role,
     });
   });
 });

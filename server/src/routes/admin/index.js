@@ -12,9 +12,20 @@ const router = Router();
 
 // Per-router CORS for Admin namespace
 // Must allow credentials: true so that the adminRefreshToken cookie is successfully sent on refresh
+const allowedOrigins = [
+  process.env.CLIENT_URL || 'http://localhost:5173',
+  process.env.ADMIN_URL || 'http://localhost:5174',
+];
+
 router.use(
   cors({
-    origin: process.env.ADMIN_URL || 'http://localhost:5174',
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   })
 );

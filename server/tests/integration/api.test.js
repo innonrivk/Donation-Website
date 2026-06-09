@@ -56,7 +56,7 @@ test('Integration: Admin Auth Flow & Protected Routing & CORS checks', async (t)
       },
       body: JSON.stringify({
         email: 'admin@openmindprojects.org',
-        password: process.env.SEED_ADMIN_PASSWORD || 'adminpassword123',
+        password: process.env.SEED_ADMIN_PASSWORD || '12345678',
       }),
     });
 
@@ -137,5 +137,81 @@ test('Integration: Admin Auth Flow & Protected Routing & CORS checks', async (t)
 
     const setCookie = res.headers.get('set-cookie');
     assert.ok(setCookie && setCookie.includes('adminRefreshToken=;'));
+  });
+});
+
+test('Integration: Easy Admin Login & Decoupled Token Upgrade Pattern', async (t) => {
+  let donorCookie = '';
+  let adminToken = '';
+
+  await t.test('POST /public/auth/login succeeds with admin credentials and returns user profile with role: ADMIN', async () => {
+    const res = await fetch(`${BASE_URL}/public/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: 'admin@openmindprojects.org',
+        password: process.env.SEED_ADMIN_PASSWORD || '12345678',
+      }),
+    });
+
+    assert.strictEqual(res.status, 200);
+    const data = await res.json();
+    assert.strictEqual(data.status, 'LOGGED_IN');
+    assert.strictEqual(data.user.role, 'ADMIN');
+
+    const setCookie = res.headers.get('set-cookie');
+    assert.ok(setCookie, 'Expected public auth token cookie to be set');
+    donorCookie = setCookie.split(';')[0];
+  });
+
+  await t.test('POST /admin/auth/upgrade fails with 401 when no public session is present', async () => {
+    const res = await fetch(`${BASE_URL}/admin/auth/upgrade`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    assert.strictEqual(res.status, 401);
+  });
+
+  await t.test('POST /admin/auth/upgrade succeeds with valid public admin session and issues admin refresh token cookie + access token', async () => {
+    assert.ok(donorCookie, 'Pre-condition failed: Public auth cookie was not retrieved.');
+    const res = await fetch(`${BASE_URL}/admin/auth/upgrade`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: donorCookie,
+      },
+    });
+
+    assert.strictEqual(res.status, 200);
+    const data = await res.json();
+    assert.strictEqual(data.status, 'UPGRADED');
+    assert.ok(data.accessToken);
+    assert.strictEqual(data.user.role, 'ADMIN');
+    adminToken = data.accessToken;
+
+    const setCookie = res.headers.get('set-cookie');
+    assert.ok(setCookie && setCookie.includes('adminRefreshToken='), 'Expected adminRefreshToken cookie to be set');
+  });
+
+  await t.test('POST /admin/auth/logout clears both admin and public cookies', async () => {
+    assert.ok(adminToken, 'Pre-condition failed: Admin token was not generated.');
+    const res = await fetch(`${BASE_URL}/admin/auth/logout`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+      },
+    });
+
+    assert.strictEqual(res.status, 200);
+    const cookies = res.headers.getSetCookie ? res.headers.getSetCookie() : [res.headers.get('set-cookie') || ''];
+    const hasAdminClear = cookies.some(c => c.includes('adminRefreshToken=;'));
+    const hasPublicClear = cookies.some(c => c.includes('token=;'));
+    assert.ok(hasAdminClear, 'Expected adminRefreshToken cookie to be cleared');
+    assert.ok(hasPublicClear, 'Expected public token cookie to be cleared');
   });
 });

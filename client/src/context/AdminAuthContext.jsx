@@ -162,6 +162,34 @@ export function AdminAuthProvider({ children }) {
     }
   };
 
+  /**
+   * upgradeAdminSession — Exchanges a valid public (donor) admin session for an administrative Bearer JWT token.
+   *
+   * Why? Enables unified public portal login for administrators, keeping the ADMIN_JWT_SECRET isolated
+   * behind the /admin namespace upgrade request.
+   */
+  const upgradeAdminSession = async () => {
+    try {
+      const { data } = await adminApi.post('/auth/upgrade');
+      setToken(data.accessToken);
+      setAdmin(data.user);
+      setIsAuthenticated(true);
+      return data;
+    } catch (error) {
+      setToken(null);
+      setIsAuthenticated(false);
+      setAdmin(null);
+      throw error;
+    }
+  };
+
+  const updateAdminState = useCallback((user, accessToken = null) => {
+    setAdmin(user);
+    if (accessToken) {
+      setToken(accessToken);
+    }
+  }, []);
+
   const value = {
     admin,
     token,
@@ -170,6 +198,8 @@ export function AdminAuthProvider({ children }) {
     login,
     logout,
     refreshSession: silentRefresh,
+    upgradeAdminSession,
+    updateAdminState,
   };
 
   return (

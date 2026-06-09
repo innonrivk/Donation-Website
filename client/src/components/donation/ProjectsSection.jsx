@@ -1,4 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
+import { useContent } from '../../context/ContentContext';
+import { CONTENT_KEYS } from '../../lib/contentKeys';
+import { formatContentInline } from '../../utils/formatContent';
 import './ProjectsSection.css';
 
 /**
@@ -137,13 +140,11 @@ export default function ProjectsSection({ projects }) {
     >
       <div className="container">
         <div className="projects-section__header">
-          <span className="projects-section__label">Where Your Money Goes</span>
           <h2 className="projects-section__title">
-            Active <span className="gradient-text">Projects</span>
+            {formatContentInline(useContent(CONTENT_KEYS.PROJECTS_TITLE, 'Active **Projects**'))}
           </h2>
           <p className="projects-section__desc">
-            Your donations directly fund these community-driven initiatives.
-            Track progress and see the real impact of your contribution.
+            {formatContentInline(useContent(CONTENT_KEYS.PROJECTS_INTRO, 'Your donations directly fund these community-driven initiatives. Track progress and see the real impact of your contribution.'))}
           </p>
         </div>
 

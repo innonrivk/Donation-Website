@@ -1,3 +1,6 @@
+import { useContent } from '../../context/ContentContext';
+import { CONTENT_KEYS } from '../../lib/contentKeys';
+import { formatContentInline } from '../../utils/formatContent';
 import './DonationProgramDetails.css';
 
 const TIER_ICONS = {
@@ -48,13 +51,11 @@ export default function DonationProgramDetails({ tiers, milestones }) {
         {hasTiers && (
           <>
             <div className="program-details__header">
-              <span className="program-details__label">Your Benefits</span>
               <h2 className="program-details__title">
-                Donation <span className="gradient-text">Tiers</span>
+                {formatContentInline(useContent(CONTENT_KEYS.TIERS_TITLE, 'Donation **Tiers**'))}
               </h2>
               <p className="program-details__desc">
-                Every dollar makes an impact. Choose your tier and unlock exclusive
-                perks that deepen your connection to our mission.
+                {formatContentInline(useContent(CONTENT_KEYS.TIERS_INTRO, 'Our tiers ensure transparency and show how every dollar level supports specific community goals.'))}
               </p>
             </div>
 
@@ -110,12 +111,11 @@ export default function DonationProgramDetails({ tiers, milestones }) {
             {milestones.some(m => !m.isRepeatable) && (
               <div className="milestones-track-section" style={{ marginBottom: '5rem' }}>
                 <div className="milestones-header">
-                  <span className="milestones-header__label">Monthly Rewards</span>
                   <h2 className="milestones-header__title">
-                    Monthly Donation <span className="gradient-text">Roadmap</span>
+                    {formatContentInline(useContent(CONTENT_KEYS.ROADMAP_TITLE, 'Monthly Donation **Roadmap**'))}
                   </h2>
                   <p className="milestones-header__desc">
-                    Your consistent monthly support drives lasting change. Reach these honorary milestones to unlock certificates and premium donor statuses.
+                    {formatContentInline(useContent(CONTENT_KEYS.ROADMAP_INTRO, 'Track the path of your donation from initial funding to on-the-ground project deployment.'))}
                   </p>
                 </div>
 
@@ -142,12 +142,11 @@ export default function DonationProgramDetails({ tiers, milestones }) {
             {milestones.some(m => m.isRepeatable) && (
               <div className="milestones-track-section">
                 <div className="milestones-header">
-                  <span className="milestones-header__label">One-Time Objectives</span>
                   <h2 className="milestones-header__title">
-                    Tangible Impact <span className="gradient-text">Objectives</span>
+                    {formatContentInline(useContent(CONTENT_KEYS.IMPACT_TITLE, 'Tangible Impact **Objectives**'))}
                   </h2>
                   <p className="milestones-header__desc">
-                    Funded entirely by one-time donations. Every repeatable target you hit directly finances tangible supplies and field resources.
+                    {formatContentInline(useContent(CONTENT_KEYS.IMPACT_INTRO, 'We focus on clear, measurable impact metrics. See what achievements our donor community has unlocked.'))}
                   </p>
                 </div>
 

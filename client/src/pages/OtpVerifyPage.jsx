@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { signup } from '../services/api';
 import './OtpVerifyPage.css';
 
 export default function OtpVerifyPage() {
@@ -98,7 +99,6 @@ export default function OtpVerifyPage() {
     if (resendCooldown > 0) return;
 
     try {
-      const { signup } = await import('../services/api');
       await signup({ email, firstName: '', lastName: '', password });
       setResendCooldown(60);
       setError('');

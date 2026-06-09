@@ -1,8 +1,15 @@
 import { Router } from 'express';
 import prisma from '../../lib/prismaPublic.js';
 import { mapDonationBoxes } from '../../lib/mapDonationBoxes.js';
+import { getPublicContent } from '../../controllers/public/contentController.js';
 
 const router = Router();
+
+/**
+ * GET /api/v1/public/content/site-text
+ * Fetches all dynamic website text. Optimized via in-memory caching.
+ */
+router.get('/site-text', getPublicContent);
 
 /**
  * GET /api/v1/public/content

@@ -153,7 +153,7 @@ export default function CMSDonationBoxes() {
               <select {...register('tierId')}>
                 <option value="">-- No Linked Tier --</option>
                 {tiers.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name} (${t.minAmount / 100}+)</option>
+                  <option key={t.id} value={t.id}>{t.name} (${t.minAmount}+)</option>
                 ))}
               </select>
             </div>

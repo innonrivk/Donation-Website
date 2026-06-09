@@ -1,6 +1,9 @@
+import { useContent } from '../../context/ContentContext';
+import { CONTENT_KEYS } from '../../lib/contentKeys';
+import { formatContentInline } from '../../utils/formatContent';
 import './HeroSection.css';
 
-export default function HeroSection({ content }) {
+export default function HeroSection() {
   return (
     <section className="hero">
       {/* Animated background elements */}
@@ -16,10 +19,10 @@ export default function HeroSection({ content }) {
           Monthly Donation Program
         </div>
         <h1 className="hero__title">
-          {content?.head || 'Empower Communities, Transform Lives'}
+          {formatContentInline(useContent(CONTENT_KEYS.WELCOME_HEADLINE, 'Empower Communities, Transform Lives'))}
         </h1>
         <p className="hero__subtitle">
-          {content?.subtitle || 'Your monthly donation creates lasting impact through sustainable projects'}
+          {formatContentInline(useContent(CONTENT_KEYS.WELCOME_SUBHEADLINE, 'Your monthly donation creates lasting impact through sustainable projects worldwide'))}
         </p>
         <div className="hero__actions">
           <a href="#donate" className="hero__cta">

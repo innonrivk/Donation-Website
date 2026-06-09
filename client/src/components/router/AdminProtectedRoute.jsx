@@ -16,7 +16,7 @@ export default function AdminProtectedRoute({ children }) {
   if (loading) return <FullPageSpinner />;
 
   if (!isAuthenticated) {
-    return <Navigate to="/admin/login" state={{ from: location.pathname }} replace />;
+    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
   return children;

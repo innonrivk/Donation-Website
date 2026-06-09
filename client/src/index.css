@@ -184,6 +184,23 @@ img {
   background-clip: text;
 }
 
+.gradient-gold {
+  background: linear-gradient(135deg, #fbbc04 0%, #ff8f00 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.underline-text {
+  text-decoration: underline;
+  text-decoration-color: inherit;
+  text-underline-offset: 4px;
+}
+
+.bold-text {
+  font-weight: 700;
+}
+
 .glass {
   background: var(--color-bg-glass);
   backdrop-filter: blur(20px);

@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
+import { useAdminAuth } from '../context/AdminAuthContext';
 import './LoginPage.css';
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, googleLogin } = useAuth();
+  const { upgradeAdminSession } = useAdminAuth();
 
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
@@ -27,8 +29,13 @@ export default function LoginPage() {
     setError('');
 
     try {
-      await login({ email: form.email, password: form.password });
-      navigate(from, { replace: true });
+      const result = await login({ email: form.email, password: form.password });
+      if (result.user?.role === 'ADMIN') {
+        await upgradeAdminSession();
+        navigate('/admin/dashboard', { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
     } catch (err) {
       setError(err.message || 'Login failed.');
     } finally {
@@ -40,8 +47,13 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      await googleLogin({ credential: credentialResponse.credential });
-      navigate(from, { replace: true });
+      const result = await googleLogin({ credential: credentialResponse.credential });
+      if (result.user?.role === 'ADMIN') {
+        await upgradeAdminSession();
+        navigate('/admin/dashboard', { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
     } catch (err) {
       setError(err.message || 'Google login failed.');
     } finally {
