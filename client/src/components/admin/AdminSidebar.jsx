@@ -16,6 +16,7 @@ export default function AdminSidebar() {
 
   const navItems = [
     { label: 'Text edit site', path: '/admin/dashboard', icon: '💬' },
+    { label: 'Active Projects', path: '/admin/dashboard/projects', icon: '📂' },
     { label: 'Donation Boxes', path: '/admin/dashboard/donation-boxes', icon: '🎁' },
     { label: 'Tiers', path: '/admin/dashboard/tiers', icon: '⭐' },
     { label: 'Milestones', path: '/admin/dashboard/milestones', icon: '🏆' },

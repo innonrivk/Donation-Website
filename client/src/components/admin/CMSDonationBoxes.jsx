@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { adminApi } from '../../lib/api';
 import MarkdownHelper from './MarkdownHelper';
+import ConfirmDeleteModal from '../ui/ConfirmDeleteModal';
 
 const DonationBoxSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -26,6 +27,7 @@ export default function CMSDonationBoxes() {
   const [editingBox, setEditingBox] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [apiError, setApiError] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   // Fetch boxes and tiers (for dropdown mapping)
   const { data: boxes = [], isLoading: loadingBoxes } = useQuery({
@@ -74,9 +76,11 @@ export default function CMSDonationBoxes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-boxes'] });
       queryClient.invalidateQueries({ queryKey: ['cms'] });
+      setDeleteTarget(null);
     },
     onError: (err) => {
       alert(err.response?.data?.message || err.message || 'Delete failed.');
+      setDeleteTarget(null);
     },
   });
 
@@ -111,11 +115,7 @@ export default function CMSDonationBoxes() {
     reset();
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this donation box?')) {
-      deleteMutation.mutate(id);
-    }
-  };
+
 
   if (loadingBoxes) return <div className="admin-loading">Loading donation cards...</div>;
 
@@ -218,12 +218,21 @@ export default function CMSDonationBoxes() {
               <p className="cms-card__perks-summary">{box.tierDetails || 'No subtext specified.'}</p>
               <div className="cms-card__actions">
                 <button onClick={() => openForm(box)} className="cms-btn-action">Edit</button>
-                <button onClick={() => handleDelete(box.id)} className="cms-btn-action cms-btn-action--danger">Delete</button>
+                <button onClick={() => setDeleteTarget(box)} className="cms-btn-action cms-btn-action--danger">Delete</button>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      <ConfirmDeleteModal
+        isOpen={!!deleteTarget}
+        title="Delete Donation Box"
+        message={deleteTarget ? `Are you sure you want to delete the donation card <strong>${deleteTarget.title}</strong>?` : ''}
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => deleteMutation.mutate(deleteTarget.id)}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

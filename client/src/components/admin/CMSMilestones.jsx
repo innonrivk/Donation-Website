@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { adminApi } from '../../lib/api';
 import MarkdownHelper from './MarkdownHelper';
+import ConfirmDeleteModal from '../ui/ConfirmDeleteModal';
 
 const MilestoneSchema = z.object({
   amountUsd: z.preprocess((val) => parseInt(val, 10), z.number().int().min(1, 'Amount must be at least $1')),
@@ -22,6 +23,7 @@ export default function CMSMilestones() {
   const [editingMilestone, setEditingMilestone] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [apiError, setApiError] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const { data: milestones = [], isLoading } = useQuery({
     queryKey: ['admin-milestones'],
@@ -58,8 +60,12 @@ export default function CMSMilestones() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-milestones'] });
       queryClient.invalidateQueries({ queryKey: ['cms'] });
+      setDeleteTarget(null);
     },
-    onError: (err) => alert(err.response?.data?.message || err.message || 'Delete failed.'),
+    onError: (err) => {
+      alert(err.response?.data?.message || err.message || 'Delete failed.');
+      setDeleteTarget(null);
+    },
   });
 
   const openForm = (m = null) => {
@@ -169,11 +175,7 @@ export default function CMSMilestones() {
               <div className="cms-card__actions">
                 <button onClick={() => openForm(m)} className="cms-btn-action">Edit</button>
                 <button
-                  onClick={() => {
-                    if (window.confirm('Delete this milestone? This will demote any donors who reached it.')) {
-                      deleteMutation.mutate(m.id);
-                    }
-                  }}
+                  onClick={() => setDeleteTarget(m)}
                   className="cms-btn-action cms-btn-action--danger"
                 >
                   Delete
@@ -183,6 +185,15 @@ export default function CMSMilestones() {
           ))}
         </div>
       )}
+
+      <ConfirmDeleteModal
+        isOpen={!!deleteTarget}
+        title="Delete Milestone"
+        message={deleteTarget ? `Are you sure you want to delete the milestone <strong>${deleteTarget.label}</strong>? This will demote any donors who reached it.` : ''}
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => deleteMutation.mutate(deleteTarget.id)}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

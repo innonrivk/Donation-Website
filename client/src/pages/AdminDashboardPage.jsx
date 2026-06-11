@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import AdminSidebar from '../components/admin/AdminSidebar';
+import CMSProjects from '../components/admin/CMSProjects';
 import CMSDonationBoxes from '../components/admin/CMSDonationBoxes';
 import CMSTiers from '../components/admin/CMSTiers';
 import CMSMilestones from '../components/admin/CMSMilestones';
@@ -21,6 +22,7 @@ export default function AdminDashboardPage() {
       <main className="admin-content">
         <Routes>
           <Route path="/" element={<EditContentPage />} />
+          <Route path="/projects" element={<CMSProjects />} />
           <Route path="/donation-boxes" element={<CMSDonationBoxes />} />
           <Route path="/tiers" element={<CMSTiers />} />
           <Route path="/milestones" element={<CMSMilestones />} />

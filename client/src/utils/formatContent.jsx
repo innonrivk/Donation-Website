@@ -64,6 +64,16 @@ function parseTextRecursive(text) {
     }
   }
 
+  // Match: !!text!! (Default Color)
+  const defaultColorRegex = /!!(.*?)!!/g;
+  while ((match = defaultColorRegex.exec(text)) !== null) {
+    if (match.index < earliestIndex) {
+      earliestIndex = match.index;
+      earliestMatch = match;
+      matchType = 'default-color';
+    }
+  }
+
   // Match: *text* (Bold)
   // Why use this boundary regex instead of lookbehinds? Safari versions below 16.4 do not support 
   // negative lookbehinds (?<!...) and will throw a fatal SyntaxError. Using a captured boundary 
@@ -116,6 +126,8 @@ function parseTextRecursive(text) {
     wrappedElement = <span key={key} className="gradient-gold">{parsedInner}</span>;
   } else if (matchType === 'underline') {
     wrappedElement = <span key={key} className="underline-text">{parsedInner}</span>;
+  } else if (matchType === 'default-color') {
+    wrappedElement = <span key={key} className="default-color-text">{parsedInner}</span>;
   } else if (matchType === 'bold') {
     wrappedElement = <strong key={key} className="bold-text">{parsedInner}</strong>;
   }

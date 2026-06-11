@@ -195,10 +195,35 @@ img {
   text-decoration: underline;
   text-decoration-color: inherit;
   text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+}
+
+/* Ensure underlines nested inside color gradients inherit/use the theme colors */
+.gradient-text .underline-text {
+  text-decoration-color: var(--brand-blue);
+}
+
+.gradient-gold .underline-text {
+  text-decoration-color: #ff8f00;
+}
+
+/* Make underlines thicker (bold) if the underline is nested inside bold text */
+.bold-text .underline-text,
+strong .underline-text {
+  text-decoration-thickness: 2px;
 }
 
 .bold-text {
   font-weight: 700;
+}
+
+.default-color-text {
+  color: var(--color-text-primary);
+  background: none;
+  -webkit-text-fill-color: var(--color-text-primary);
+  background-clip: unset;
+  -webkit-background-clip: unset;
+  font-weight: normal; /* Force normal font weight (un-bold) */
 }
 
 .glass {

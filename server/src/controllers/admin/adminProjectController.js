@@ -4,12 +4,12 @@ import { ErrorCodes } from '../../lib/errors.js';
 
 const ProjectDetailSchema = z.object({
   projectName: z.string().min(1, 'Project name is required'),
-  details: z.string().optional(),
-  status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
+  details: z.string().optional().default(''),
+  status: z.enum(['ACTIVE', 'INACTIVE']).default('ACTIVE'),
   imageUrl: z.string().url().nullable().optional().or(z.literal('')),
-  fundingGoal: z.number().int().min(0, 'Funding goal must be at least 0'), // cents
-  fundedAmount: z.number().int().min(0, 'Funded amount must be at least 0').optional(), // cents
 });
+
+const ProjectUpdateSchema = ProjectDetailSchema.partial();
 
 export async function getProjects(req, res, next) {
   try {
@@ -53,7 +53,7 @@ export async function createProject(req, res, next) {
 export async function updateProject(req, res, next) {
   try {
     const { id } = req.params;
-    const parsed = ProjectDetailSchema.safeParse(req.body);
+    const parsed = ProjectUpdateSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({
         error: ErrorCodes.VALIDATION_ERROR,
@@ -68,14 +68,15 @@ export async function updateProject(req, res, next) {
     }
 
     const { imageUrl, ...rest } = parsed.data;
-    const finalImageUrl = imageUrl === '' ? null : imageUrl;
+    // Only resolve finalImageUrl if imageUrl is explicitly passed
+    let dataToUpdate = { ...rest };
+    if (imageUrl !== undefined) {
+      dataToUpdate.imageUrl = imageUrl === '' ? null : imageUrl;
+    }
 
     const updated = await prisma.projectDetail.update({
       where: { id: projectId },
-      data: {
-        ...rest,
-        imageUrl: finalImageUrl,
-      },
+      data: dataToUpdate,
     });
     return res.status(200).json(updated);
   } catch (error) {

@@ -1,0 +1,85 @@
+/* Status dot indicators */
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-dot--active {
+  background-color: var(--brand-green);
+  box-shadow: 0 0 8px rgba(52, 168, 83, 0.4);
+}
+
+.status-dot--inactive {
+  background-color: var(--color-text-muted);
+}
+
+/* Status tags on project cards */
+.cms-card__status-tag {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-secondary);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-sm);
+  border: 1px solid var(--color-border);
+}
+
+
+.cms-card__description {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  flex: 1;
+  margin-bottom: var(--space-md);
+  /* Truncate multi-line description */
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Empty State Styles */
+.cms-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3xl) var(--space-xl);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+.cms-empty-state__icon {
+  font-size: 3.5rem;
+  margin-bottom: var(--space-xs);
+}
+
+.cms-empty-state h4 {
+  font-size: var(--font-size-xl);
+  color: var(--brand-dark);
+  margin: 0;
+}
+
+.cms-empty-state p {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  max-width: 440px;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* Form layout overrides */
+.cms-form__field--full {
+  grid-column: 1 / -1;
+}
