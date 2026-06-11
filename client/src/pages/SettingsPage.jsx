@@ -398,44 +398,52 @@ export default function SettingsPage() {
               {/* Delete User */}
               <div className="settings-form" style={{ paddingTop: '20px' }}>
                 <h4 style={{ margin: 0, color: '#ea4335', fontSize: '15px' }}>Permanently Delete Account</h4>
-                <p className="settings-info">
-                  Once deleted, your account, billing profiles, votes, and tier milestones cannot be recovered. This action requires email OTP confirmation.
-                </p>
-
-                {deleteStep === 'idle' && (
+                {user?.role === 'ADMIN' ? (
+                  <p className="settings-info" style={{ marginTop: '10px' }}>
+                    Account management options are not available for this account type.
+                  </p>
+                ) : (
                   <>
-                    {deleteMsg.text && <p className={`dash-msg dash-msg--${deleteMsg.type}`}>{deleteMsg.text}</p>}
-                    <button
-                      type="button"
-                      className="settings-btn settings-btn--danger"
-                      onClick={handleRequestDeleteOtp}
-                      disabled={deleteLoading}
-                    >
-                      {deleteLoading ? <span className="auth-form__spinner" /> : 'Request Account Deletion OTP'}
-                    </button>
-                  </>
-                )}
+                    <p className="settings-info">
+                      Once deleted, your account, billing profiles, votes, and tier milestones cannot be recovered. This action requires email OTP confirmation.
+                    </p>
 
-                {deleteStep === 'otp_sent' && (
-                  <form onSubmit={handleDeleteAccount} className="settings-form" style={{ paddingTop: 0 }}>
-                    <div className="auth-form__field">
-                      <label htmlFor="del-otp">Verification Code</label>
-                      <input
-                        id="del-otp"
-                        type="text"
-                        value={deleteOtp}
-                        onChange={e => setDeleteOtp(e.target.value)}
-                        maxLength={6}
-                        placeholder="6-digit code"
-                        required
-                        style={{ bordercolor: 'rgba(234, 67, 53, 0.3)' }}
-                      />
-                    </div>
-                    {deleteMsg.text && <p className={`dash-msg dash-msg--${deleteMsg.type}`}>{deleteMsg.text}</p>}
-                    <button type="submit" className="settings-btn" style={{ background: '#ea4335' }} disabled={deleteLoading}>
-                      {deleteLoading ? <span className="auth-form__spinner" /> : 'Permanently Delete My Account'}
-                    </button>
-                  </form>
+                    {deleteStep === 'idle' && (
+                      <>
+                        {deleteMsg.text && <p className={`dash-msg dash-msg--${deleteMsg.type}`}>{deleteMsg.text}</p>}
+                        <button
+                          type="button"
+                          className="settings-btn settings-btn--danger"
+                          onClick={handleRequestDeleteOtp}
+                          disabled={deleteLoading}
+                        >
+                          {deleteLoading ? <span className="auth-form__spinner" /> : 'Request Account Deletion OTP'}
+                        </button>
+                      </>
+                    )}
+
+                    {deleteStep === 'otp_sent' && (
+                      <form onSubmit={handleDeleteAccount} className="settings-form" style={{ paddingTop: 0 }}>
+                        <div className="auth-form__field">
+                          <label htmlFor="del-otp">Verification Code</label>
+                          <input
+                            id="del-otp"
+                            type="text"
+                            value={deleteOtp}
+                            onChange={e => setDeleteOtp(e.target.value)}
+                            maxLength={6}
+                            placeholder="6-digit code"
+                            required
+                            style={{ borderColor: 'rgba(234, 67, 53, 0.3)' }}
+                          />
+                        </div>
+                        {deleteMsg.text && <p className={`dash-msg dash-msg--${deleteMsg.type}`}>{deleteMsg.text}</p>}
+                        <button type="submit" className="settings-btn" style={{ background: '#ea4335' }} disabled={deleteLoading}>
+                          {deleteLoading ? <span className="auth-form__spinner" /> : 'Permanently Delete My Account'}
+                        </button>
+                      </form>
+                    )}
+                  </>
                 )}
               </div>
             </div>

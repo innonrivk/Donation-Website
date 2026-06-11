@@ -1,17 +1,19 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { adminApi } from '../../lib/api';
 import MarkdownHelper from './MarkdownHelper';
+import ConfirmDeleteModal from '../ui/ConfirmDeleteModal';
+import PerkChipInput from '../ui/PerkChipInput';
 
 const TierFormSchema = z.object({
   tierLevel: z.preprocess((val) => parseInt(val, 10), z.number().int().min(1)),
   name: z.string().min(1, 'Name is required'),
   minAmount: z.preprocess((val) => parseInt(val, 10), z.number().int().min(0)),
   maxAmount: z.preprocess((val) => (val === '' ? null : parseInt(val, 10)), z.number().int().min(0).nullable().optional()),
-  perks: z.array(z.object({ value: z.string().min(1, 'Perk description cannot be empty') })),
+  perks: z.array(z.string()).optional(),
 });
 
 export default function CMSTiers() {
@@ -19,8 +21,8 @@ export default function CMSTiers() {
   const [editingTier, setEditingTier] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [apiError, setApiError] = useState('');
-  const perksContainerRef = useRef(null);
-  const shouldFocusLast = useRef(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [perks, setPerks] = useState([]);
 
   const { data: tiers = [], isLoading } = useQuery({
     queryKey: ['admin-tiers'],
@@ -30,16 +32,22 @@ export default function CMSTiers() {
     },
   });
 
-  const { register, handleSubmit, control, reset, formState: { errors, isSubmitting } } = useForm({
-    resolver: zodResolver(TierFormSchema),
-    defaultValues: { tierLevel: 1, name: '', minAmount: 0, maxAmount: '', perks: [] },
+  const { data: boxes = [] } = useQuery({
+    queryKey: ['admin-boxes'],
+    queryFn: async () => {
+      const { data } = await adminApi.get('/content/donation-boxes');
+      return data;
+    },
   });
 
-  const { fields, append, remove } = useFieldArray({ control, name: 'perks' });
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(TierFormSchema),
+    defaultValues: { tierLevel: 1, name: '', minAmount: 0, maxAmount: '' },
+  });
 
   const saveMutation = useMutation({
     mutationFn: async (data) => {
-      const payload = { ...data, perks: data.perks.map((p) => p.value) };
+      const payload = { ...data, perks };
       if (editingTier) return adminApi.put(`/tiers/${editingTier.id}`, payload);
       return adminApi.post('/tiers', payload);
     },
@@ -58,20 +66,13 @@ export default function CMSTiers() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-tiers'] });
       queryClient.invalidateQueries({ queryKey: ['cms'] });
+      setDeleteTarget(null);
     },
-    onError: (err) => alert(err.response?.data?.message || err.message || 'Delete failed.'),
+    onError: (err) => {
+      alert(err.response?.data?.message || err.message || 'Delete failed.');
+      setDeleteTarget(null);
+    },
   });
-
-  // Focus management: when fields length increases, focus the newly added input
-  useEffect(() => {
-    if (shouldFocusLast.current && perksContainerRef.current) {
-      const inputs = perksContainerRef.current.querySelectorAll('.perk-input');
-      if (inputs.length > 0) {
-        inputs[inputs.length - 1].focus();
-      }
-      shouldFocusLast.current = false;
-    }
-  }, [fields.length]);
 
   const openForm = (tier = null) => {
     setApiError('');
@@ -83,16 +84,17 @@ export default function CMSTiers() {
       } catch {
         parsedPerks = [];
       }
+      setPerks(parsedPerks);
       reset({
         tierLevel: tier.tierLevel,
         name: tier.name,
         minAmount: tier.minAmount,
         maxAmount: tier.maxAmount === null ? '' : tier.maxAmount,
-        perks: parsedPerks.map((p) => ({ value: p })),
       });
     } else {
       setEditingTier(null);
-      reset({ tierLevel: tiers.length + 1, name: '', minAmount: 0, maxAmount: '', perks: [] });
+      setPerks([]);
+      reset({ tierLevel: tiers.length + 1, name: '', minAmount: 0, maxAmount: '' });
     }
     setIsFormOpen(true);
   };
@@ -100,13 +102,24 @@ export default function CMSTiers() {
   const closeForm = () => {
     setIsFormOpen(false);
     setEditingTier(null);
+    setPerks([]);
     reset();
   };
 
-  const handleAddPerk = () => {
-    shouldFocusLast.current = true;
-    append({ value: '' });
+  const getTierPerks = (tier) => {
+    try {
+      return typeof tier.perks === 'string' ? JSON.parse(tier.perks) : (Array.isArray(tier.perks) ? tier.perks : []);
+    } catch {
+      return [];
+    }
   };
+
+  const linkedBoxesCount = deleteTarget ? boxes.filter((b) => b.tierId === deleteTarget.id).length : 0;
+  const deleteWarningMessage = deleteTarget
+    ? linkedBoxesCount > 0
+      ? `This Tier is linked to <strong>${linkedBoxesCount} Donation Box(es)</strong>. Deleting it will remove inherited perks from those boxes. Continue?`
+      : `Are you sure you want to delete the tier <strong>${deleteTarget.name}</strong>?`
+    : '';
 
   if (isLoading) return <div className="admin-loading">Loading donation tiers...</div>;
 
@@ -155,33 +168,13 @@ export default function CMSTiers() {
                 </div>
               </div>
 
-              <div className="cms-form__field">
-                <div className="perks-header">
-                  <label>Tier Perks List (Bullet Points)</label>
-                  <button type="button" onClick={handleAddPerk} className="add-perk-btn">
-                    + Add Perk Line
-                  </button>
-                </div>
-
-                <div ref={perksContainerRef} aria-live="polite" className="perks-list-inputs">
-                  {fields.map((field, index) => (
-                    <div key={field.id} className="perk-input-row">
-                      <input
-                        {...register(`perks.${index}.value`)}
-                        className="perk-input"
-                        placeholder="e.g. Monthly newsletter updates"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => remove(index)}
-                        aria-label={`Remove perk ${index + 1}`}
-                        className="remove-perk-btn"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
+              <div className="cms-form__field" style={{ marginTop: '16px' }}>
+                <label>Tier Perks List (Chips)</label>
+                <PerkChipInput
+                  value={perks}
+                  onChange={setPerks}
+                  placeholder="Type a perk and press Enter..."
+                />
               </div>
             </div>
 
@@ -208,34 +201,29 @@ export default function CMSTiers() {
               <div className="cms-card__amount">
                 ${tier.minAmount} {tier.maxAmount != null ? `– $${tier.maxAmount}` : '+'} / mo
               </div>
-              <ul className="cms-card__perks-list">
-                {(() => {
-                  let parsed;
-                  try {
-                    parsed = typeof tier.perks === 'string' ? JSON.parse(tier.perks) : (Array.isArray(tier.perks) ? tier.perks : []);
-                  } catch {
-                    parsed = [];
-                  }
-                  return parsed.map((p, idx) => <li key={idx}>• {p}</li>);
-                })()}
-              </ul>
+              <div style={{ margin: '12px 0' }}>
+                <PerkChipInput
+                  value={getTierPerks(tier)}
+                  disabled={true}
+                />
+              </div>
               <div className="cms-card__actions">
                 <button onClick={() => openForm(tier)} className="cms-btn-action">Edit</button>
-                <button
-                  onClick={() => {
-                    if (window.confirm('Deleting this tier will unlink it from any donation boxes. Continue?')) {
-                      deleteMutation.mutate(tier.id);
-                    }
-                  }}
-                  className="cms-btn-action cms-btn-action--danger"
-                >
-                  Delete
-                </button>
+                <button onClick={() => setDeleteTarget(tier)} className="cms-btn-action cms-btn-action--danger">Delete</button>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      <ConfirmDeleteModal
+        isOpen={!!deleteTarget}
+        title="Delete Donation Tier"
+        message={deleteWarningMessage}
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => deleteMutation.mutate(deleteTarget.id)}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

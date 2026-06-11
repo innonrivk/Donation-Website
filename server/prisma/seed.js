@@ -6,6 +6,29 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding database...');
 
+  // ── One-Time Migration Step ──
+  try {
+    console.log('🔄 Running one-time migration for existing donation boxes...');
+    const existingBoxes = await prisma.donationBox.findMany();
+    let migratedCount = 0;
+    for (const box of existingBoxes) {
+      if (!box.tierId && box.tierDetails && box.tierDetails.includes('|')) {
+        const perksArray = box.tierDetails.split('|').map((p) => p.trim()).filter(Boolean);
+        await prisma.donationBox.update({
+          where: { id: box.id },
+          data: {
+            perks: perksArray,
+            tierDetails: '',
+          },
+        });
+        migratedCount++;
+      }
+    }
+    console.log(`  📦 Migrated ${migratedCount} donation box(es) successfully.`);
+  } catch (err) {
+    console.log('  ⚠️ Migration step skipped/failed:', err.message);
+  }
+
   // ── Cleanup existing data (order matters for FK constraints) ──
   await prisma.vote.deleteMany();
   await prisma.claimedMilestone.deleteMany();
@@ -33,53 +56,57 @@ async function main() {
       firstName: 'System',
       lastName: 'Administrator',
       role: 'ADMIN',
+      isProtected: true,
       password: adminPasswordHash,
       country: 'Global',
     },
   });
   console.log('  ✅ Admin user seeded');
 
-
   // ── Seed Tiers ──
-  await prisma.tier.createMany({
-    data: [
-      {
-        tierLevel: 1,
-        name: 'Regular',
-        minAmount: 1,
-        maxAmount: 84,
-        perks: JSON.stringify([
-          'Monthly updates from our newsletter',
-          'Invitation to "OMP\'s yearly impact" yearly zoom event',
-          'Monthly seed coupons for voting based on the donated amount (1 seed = $1)',
-          'Access to OMP group tours at a discounted rate (the real price without the middlemen)',
-        ]),
-      },
-      {
-        tierLevel: 2,
-        name: 'Shareholder',
-        minAmount: 85,
-        maxAmount: 169,
-        perks: JSON.stringify([
-          'All Regular tier perks',
-          'Quarter meetings: progression and behind the scenes — your opinions shape marketing research',
-          'Special voting to create a campaign shown on the platform, with monthly aid from OMP for half a year from the second piggy bank',
-          'Every $10 above $75 grants an additional vote',
-          'Voting on small things like design for camp t-shirts and more',
-        ]),
-      },
-      {
-        tierLevel: 3,
-        name: 'Patron',
-        minAmount: 170,
-        maxAmount: null,
-        perks: JSON.stringify([
-          'All Shareholder tier perks',
-          'Your name on the back of camp t-shirts in the "sponsors" section',
-          'Personal thank-you on our social media — quarterly name posts and video shout-outs',
-        ]),
-      },
-    ],
+  const regularTier = await prisma.tier.create({
+    data: {
+      tierLevel: 1,
+      name: 'Regular',
+      minAmount: 1,
+      maxAmount: 84,
+      perks: [
+        'Monthly updates from our newsletter',
+        'Invitation to "OMP\'s yearly impact" yearly zoom event',
+        'Monthly seed coupons for voting based on the donated amount (1 seed = $1)',
+        'Access to OMP group tours at a discounted rate (the real price without the middlemen)',
+      ],
+    },
+  });
+
+  const shareholderTier = await prisma.tier.create({
+    data: {
+      tierLevel: 2,
+      name: 'Shareholder',
+      minAmount: 85,
+      maxAmount: 169,
+      perks: [
+        'All Regular tier perks',
+        'Quarter meetings: progression and behind the scenes — your opinions shape marketing research',
+        'Special voting to create a campaign shown on the platform, with monthly aid from OMP for half a year from the second piggy bank',
+        'Every $10 above $75 grants an additional vote',
+        'Voting on small things like design for camp t-shirts and more',
+      ],
+    },
+  });
+
+  const patronTier = await prisma.tier.create({
+    data: {
+      tierLevel: 3,
+      name: 'Patron',
+      minAmount: 170,
+      maxAmount: null,
+      perks: [
+        'All Shareholder tier perks',
+        'Your name on the back of camp t-shirts in the "sponsors" section',
+        'Personal thank-you on our social media — quarterly name posts and video shout-outs',
+      ],
+    },
   });
   console.log('  ✅ Tiers seeded');
 
@@ -109,7 +136,8 @@ async function main() {
       {
         title: 'Regular',
         amount: 10,
-        tierDetails: 'Monthly newsletter | Yearly zoom event | Voting seeds | Discounted tours',
+        tierId: regularTier.id,
+        tierDetails: '', // Perks are inherited from the Regular tier
         buttonText: 'Donate $10/mo',
         isCustomAmount: false,
         isActive: true,
@@ -118,7 +146,8 @@ async function main() {
       {
         title: 'Shareholder',
         amount: 85,
-        tierDetails: 'All Regular perks | Progression meetings | Campaign voting | Design voting',
+        tierId: shareholderTier.id,
+        tierDetails: '', // Perks are inherited from the Shareholder tier
         buttonText: 'Donate $85/mo',
         isCustomAmount: false,
         isActive: true,
@@ -127,7 +156,8 @@ async function main() {
       {
         title: 'Patron',
         amount: 170,
-        tierDetails: 'All Shareholder perks | T-shirt sponsor print | Social media thank-yous',
+        tierId: patronTier.id,
+        tierDetails: '', // Perks are inherited from the Patron tier
         buttonText: 'Donate $170/mo',
         isCustomAmount: false,
         isActive: true,

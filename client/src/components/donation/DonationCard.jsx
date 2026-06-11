@@ -7,11 +7,9 @@ export default function DonationCard({ box, onDonate, isPopular = false, isExpan
   const [scrollHeight, setScrollHeight] = useState(300);
   const perksRef = useRef(null);
 
-  const perksList = Array.isArray(box.perks)
-    ? box.perks
-    : (box.tierDetails ? box.tierDetails.split('|') : []);
+  const perksList = Array.isArray(box.perks) ? box.perks : [];
 
-  const detailsText = box.tierDetails || (Array.isArray(box.perks) ? box.perks.join(' | ') : '');
+  const detailsText = box.tierDetails || '';
 
   const isOpen = isExpanded || isHovered;
 

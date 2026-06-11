@@ -27,10 +27,16 @@ export function mapDonationBoxes(donationBoxes) {
       }
       plainBox.perks = perks;
     } else {
-      // Fallback: parse pipe-delimited tierDetails string
-      plainBox.perks = plainBox.tierDetails
-        ? plainBox.tierDetails.split('|').map(p => p.trim())
-        : [];
+      // For standalone box, perks is stored directly as a Json column
+      let perks = [];
+      try {
+        perks = typeof plainBox.perks === 'string'
+          ? JSON.parse(plainBox.perks)
+          : (Array.isArray(plainBox.perks) ? plainBox.perks : []);
+      } catch {
+        perks = [];
+      }
+      plainBox.perks = perks;
     }
 
     return plainBox;

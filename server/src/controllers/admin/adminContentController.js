@@ -24,6 +24,7 @@ const DonationBoxSchema = z.object({
   amount: z.number().int().min(0, 'Amount must be at least 0'),
   tierId: z.number().int().nullable().optional(),
   tierDetails: z.string().optional(),
+  perks: z.array(z.string()).optional(),
   buttonText: z.string().optional(),
   isCustomAmount: z.boolean().optional(),
   isRecurring: z.boolean().optional(),

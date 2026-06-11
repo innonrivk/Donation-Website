@@ -1,0 +1,100 @@
+/* Reusable PerkChipInput CSS Styles */
+
+.perk-chip-input {
+  width: 100%;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 8px 12px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  min-height: 48px;
+  box-sizing: border-box;
+}
+
+.perk-chip-input:focus-within:not(.perk-chip-input--disabled) {
+  border-color: var(--color-primary, #14b8a6);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
+}
+
+.perk-chip-input--disabled {
+  background: rgba(255, 255, 255, 0.01);
+  border-color: rgba(255, 255, 255, 0.05);
+  cursor: not-allowed;
+}
+
+.perk-chip-input__wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.perk-chip-input__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(20, 184, 166, 0.15) 0%, rgba(13, 148, 136, 0.2) 100%);
+  border: 1px solid rgba(20, 184, 166, 0.3);
+  color: var(--color-text-bright, #f8fafc);
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  line-height: 1;
+  transition: all 0.2s ease;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.perk-chip-input__chip--disabled {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.perk-chip-input__lock-icon {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.perk-chip-input__chip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.perk-chip-input__remove-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.75rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  transition: all 0.15s ease;
+}
+
+.perk-chip-input__remove-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ef4444;
+}
+
+.perk-chip-input__field {
+  flex-grow: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--color-text-bright, #f8fafc);
+  font-size: 0.9rem;
+  padding: 4px 0;
+  min-width: 140px;
+}
+
+.perk-chip-input__field::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}

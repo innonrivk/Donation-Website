@@ -1,17 +1,19 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { adminApi } from '../../lib/api';
 import MarkdownHelper from './MarkdownHelper';
 import ConfirmDeleteModal from '../ui/ConfirmDeleteModal';
+import PerkChipInput from '../ui/PerkChipInput';
 
 const DonationBoxSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   amount: z.preprocess((val) => (val === '' ? 0 : Math.round(parseFloat(val))), z.number().int().min(0)),
   tierId: z.preprocess((val) => (val === '' ? null : parseInt(val, 10)), z.number().int().nullable()),
   tierDetails: z.string().optional(),
+  perks: z.array(z.string()).optional(),
   buttonText: z.string().min(1, 'Button text is required'),
   isCustomAmount: z.boolean(),
   isRecurring: z.boolean(),
@@ -28,8 +30,8 @@ export default function CMSDonationBoxes() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [apiError, setApiError] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [perks, setPerks] = useState([]);
 
-  // Fetch boxes and tiers (for dropdown mapping)
   const { data: boxes = [], isLoading: loadingBoxes } = useQuery({
     queryKey: ['admin-boxes'],
     queryFn: async () => {
@@ -46,13 +48,24 @@ export default function CMSDonationBoxes() {
     },
   });
 
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, reset, watch, control, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(DonationBoxSchema),
     defaultValues: {
       title: '', amount: 0, tierId: '', tierDetails: '',
       buttonText: 'Donate', isCustomAmount: false, isRecurring: true, isActive: true, displayOrder: 0
     },
   });
+
+  const watchedTierId = watch('tierId');
+  const prevTierIdRef = useRef(watchedTierId);
+
+  // Sync / Clear perks when tier changes
+  useEffect(() => {
+    if (prevTierIdRef.current && !watchedTierId) {
+      setPerks([]);
+    }
+    prevTierIdRef.current = watchedTierId;
+  }, [watchedTierId]);
 
   const saveMutation = useMutation({
     mutationFn: async (payload) => {
@@ -86,8 +99,12 @@ export default function CMSDonationBoxes() {
 
   const openForm = (box = null) => {
     setApiError('');
+    const initialTierId = box ? (box.tierId === null ? '' : box.tierId) : '';
+    prevTierIdRef.current = initialTierId;
+
     if (box) {
       setEditingBox(box);
+      setPerks(box.perks || []);
       reset({
         title: box.title,
         amount: box.amount,
@@ -101,6 +118,7 @@ export default function CMSDonationBoxes() {
       });
     } else {
       setEditingBox(null);
+      setPerks([]);
       reset({
         title: '', amount: 0, tierId: '', tierDetails: '',
         buttonText: 'Donate', isCustomAmount: false, isRecurring: true, isActive: true, displayOrder: boxes.length
@@ -112,10 +130,25 @@ export default function CMSDonationBoxes() {
   const closeForm = () => {
     setIsFormOpen(false);
     setEditingBox(null);
+    setPerks([]);
     reset();
   };
 
+  const getTierPerks = (tier) => {
+    if (!tier) return [];
+    try {
+      return typeof tier.perks === 'string'
+        ? JSON.parse(tier.perks)
+        : (Array.isArray(tier.perks) ? tier.perks : []);
+    } catch {
+      return [];
+    }
+  };
 
+  const onSubmit = (data) => {
+    const payload = { ...data, perks };
+    saveMutation.mutate(payload);
+  };
 
   if (loadingBoxes) return <div className="admin-loading">Loading donation cards...</div>;
 
@@ -133,7 +166,7 @@ export default function CMSDonationBoxes() {
       {apiError && <div className="cms-error-banner">{apiError}</div>}
 
       {isFormOpen ? (
-        <form onSubmit={handleSubmit((d) => saveMutation.mutate(d))} className="cms-form glass animate-fade-in">
+        <form onSubmit={handleSubmit(onSubmit)} className="cms-form glass animate-fade-in">
           <div className="workspace-container">
             <div className="fields-workspace">
               <h3>{editingBox ? `Edit Card: ${editingBox.title}` : 'Add Donation Card Option'}</h3>
@@ -162,7 +195,7 @@ export default function CMSDonationBoxes() {
                 </div>
 
                 <div className="cms-form__field">
-                  <label>Card Highlight Subtext</label>
+                  <label>Subtext</label>
                   <input {...register('tierDetails')} placeholder="e.g. Ideal for individuals" />
                 </div>
 
@@ -175,6 +208,20 @@ export default function CMSDonationBoxes() {
                   <label>Display Position Order</label>
                   <input type="number" {...register('displayOrder')} />
                 </div>
+              </div>
+
+              <div className="cms-form__field" style={{ marginTop: '16px' }}>
+                <label>Perks List (Chips)</label>
+                <PerkChipInput
+                  value={
+                    watchedTierId
+                      ? getTierPerks(tiers.find((t) => t.id === parseInt(watchedTierId, 10)))
+                      : perks
+                  }
+                  onChange={setPerks}
+                  disabled={!!watchedTierId}
+                  placeholder="Type a perk and press Enter..."
+                />
               </div>
 
               <div className="cms-form__row-checkboxes">
@@ -215,6 +262,18 @@ export default function CMSDonationBoxes() {
                 {box.isRecurring && <span className="cms-card__freq"> / mo</span>}
               </div>
               {box.tier && <div className="cms-card__badge-tier">Linked Tier: {box.tier.name}</div>}
+              
+              <div className="cms-card__perks-list-preview" style={{ margin: '10px 0' }}>
+                <PerkChipInput
+                  value={
+                    box.tier
+                      ? getTierPerks(box.tier)
+                      : getTierPerks(box)
+                  }
+                  disabled={true}
+                />
+              </div>
+
               <p className="cms-card__perks-summary">{box.tierDetails || 'No subtext specified.'}</p>
               <div className="cms-card__actions">
                 <button onClick={() => openForm(box)} className="cms-btn-action">Edit</button>

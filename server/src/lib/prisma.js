@@ -15,12 +15,38 @@ const dbUrlWithConcurrencyConfig = rawUrl.includes('?')
   ? `${rawUrl}&${safetyParams}` 
   : `${rawUrl}?${safetyParams}`;
 
-const prisma = withEmailTrigger(new PrismaClient({
+const basePrisma = withEmailTrigger(new PrismaClient({
   datasources: {
     db: {
       url: dbUrlWithConcurrencyConfig,
     },
   },
 }));
+
+const prisma = basePrisma.$extends({
+  query: {
+    user: {
+      async delete({ args, query }) {
+        // Fetch the user before deletion to check if they are protected
+        const target = await basePrisma.user.findUnique({
+          where: args.where,
+          select: { isProtected: true },
+        });
+        if (target?.isProtected) {
+          // Silent no-op: return target instead of executing actual delete
+          return target;
+        }
+        return query(args);
+      },
+      async deleteMany({ args, query }) {
+        // Exclude protected users from bulk deletes
+        return query({
+          ...args,
+          where: { ...args.where, isProtected: false },
+        });
+      },
+    },
+  },
+});
 
 export default prisma;

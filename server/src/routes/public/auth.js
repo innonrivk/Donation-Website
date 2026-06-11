@@ -19,6 +19,7 @@ import {
   requestDeleteOtp,
   deleteAccount,
 } from '../../controllers/public/authProfileController.js';
+import { blockProtectedUser } from '../../middleware/blockProtectedUser.js';
 
 const router = Router();
 
@@ -36,7 +37,7 @@ router.post('/settings/change-password', requireAuth, changePassword);
 router.post('/settings/email-otp', requireAuth, requestEmailOtp);
 router.post('/settings/change-email', requireAuth, changeEmail);
 router.post('/settings/change-name', requireAuth, changeName);
-router.post('/settings/delete-otp', requireAuth, requestDeleteOtp);
-router.post('/settings/delete-account', requireAuth, deleteAccount);
+router.post('/settings/delete-otp', requireAuth, blockProtectedUser, requestDeleteOtp);
+router.post('/settings/delete-account', requireAuth, blockProtectedUser, deleteAccount);
 
 export default router;
