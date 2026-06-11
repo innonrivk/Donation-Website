@@ -14,20 +14,29 @@ export const ContentUpdateSchema = z.object({
   welcome_subheadline: z.string().min(1, 'Welcome subheadline is required'),
   welcome_hero_intro: z.string().min(1, 'Welcome hero intro is required'),
   
+  projects_label: z.string().min(1, 'Projects label is required').max(100, 'Projects label cannot exceed 100 characters'),
   projects_title: z.string().min(1, 'Projects title is required'),
   projects_intro: z.string().min(1, 'Projects intro is required'),
   
+  boxes_label: z.string().min(1, 'Boxes label is required').max(100, 'Boxes label cannot exceed 100 characters'),
   boxes_title: z.string().min(1, 'Donation boxes title is required'),
   boxes_cta: z.string().min(1, 'Donation boxes CTA is required'),
   
+  tiers_label: z.string().min(1, 'Tiers label is required').max(100, 'Tiers label cannot exceed 100 characters'),
   tiers_title: z.string().min(1, 'Donation tiers title is required'),
   tiers_intro: z.string().min(1, 'Donation tiers intro is required'),
   
+  roadmap_label: z.string().min(1, 'Roadmap label is required').max(100, 'Roadmap label cannot exceed 100 characters'),
   roadmap_title: z.string().min(1, 'Roadmap title is required'),
   roadmap_intro: z.string().min(1, 'Roadmap intro is required'),
   
+  impact_label: z.string().min(1, 'Impact label is required').max(100, 'Impact label cannot exceed 100 characters'),
   impact_title: z.string().min(1, 'Impact title is required'),
   impact_intro: z.string().min(1, 'Impact intro is required'),
+  
+  footer_brand_name: z.string().min(1, 'Footer brand name is required'),
+  footer_brand_desc: z.string().min(1, 'Footer brand description is required'),
+  footer_tagline: z.string().min(1, 'Footer tagline is required'),
 });
 
 /**
@@ -66,6 +75,7 @@ export const updateContent = async (req, res, next) => {
         else if (key.startsWith('tiers_')) section = 'DONATION_TIERS';
         else if (key.startsWith('roadmap_')) section = 'DONATION_ROADMAP';
         else if (key.startsWith('impact_')) section = 'TANGIBLE_IMPACT';
+        else if (key.startsWith('footer_')) section = 'FOOTER';
 
         return prisma.siteText.upsert({
           where: { key },

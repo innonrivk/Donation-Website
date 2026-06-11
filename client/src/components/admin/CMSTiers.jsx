@@ -4,6 +4,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { adminApi } from '../../lib/api';
+import MarkdownHelper from './MarkdownHelper';
 
 const TierFormSchema = z.object({
   tierLevel: z.preprocess((val) => parseInt(val, 10), z.number().int().min(1)),
@@ -124,60 +125,68 @@ export default function CMSTiers() {
 
       {isFormOpen ? (
         <form onSubmit={handleSubmit((d) => saveMutation.mutate(d))} className="cms-form glass animate-fade-in">
-          <h3>{editingTier ? `Edit Tier: ${editingTier.name}` : 'Add Benefit Tier'}</h3>
+          <div className="workspace-container">
+            <div className="fields-workspace">
+              <h3>{editingTier ? `Edit Tier: ${editingTier.name}` : 'Add Benefit Tier'}</h3>
 
-          <div className="cms-form__grid">
-            <div className="cms-form__field">
-              <label>Tier Name</label>
-              <input {...register('name')} placeholder="e.g. Regular, Shareholder" />
-              {errors.name && <span className="field-error">{errors.name.message}</span>}
-            </div>
+              <div className="cms-form__grid">
+                <div className="cms-form__field">
+                  <label>Tier Name</label>
+                  <input {...register('name')} placeholder="e.g. Regular, Shareholder" />
+                  {errors.name && <span className="field-error">{errors.name.message}</span>}
+                </div>
 
-            <div className="cms-form__field">
-              <label>Hierarchy Level</label>
-              <input type="number" {...register('tierLevel')} />
-              {errors.tierLevel && <span className="field-error">{errors.tierLevel.message}</span>}
-            </div>
+                <div className="cms-form__field">
+                  <label>Hierarchy Level</label>
+                  <input type="number" {...register('tierLevel')} />
+                  {errors.tierLevel && <span className="field-error">{errors.tierLevel.message}</span>}
+                </div>
 
-            <div className="cms-form__field">
-              <label>Min Monthly Amount ($)</label>
-              <input type="number" {...register('minAmount')} />
-              {errors.minAmount && <span className="field-error">{errors.minAmount.message}</span>}
-            </div>
+                <div className="cms-form__field">
+                  <label>Min Monthly Amount ($)</label>
+                  <input type="number" {...register('minAmount')} />
+                  {errors.minAmount && <span className="field-error">{errors.minAmount.message}</span>}
+                </div>
 
-            <div className="cms-form__field">
-              <label>Max Monthly Amount ($) (Empty = Unlimited)</label>
-              <input type="number" {...register('maxAmount')} placeholder="e.g. 84" />
-              {errors.maxAmount && <span className="field-error">{errors.maxAmount.message}</span>}
-            </div>
-          </div>
+                <div className="cms-form__field">
+                  <label>Max Monthly Amount ($) (Empty = Unlimited)</label>
+                  <input type="number" {...register('maxAmount')} placeholder="e.g. 84" />
+                  {errors.maxAmount && <span className="field-error">{errors.maxAmount.message}</span>}
+                </div>
+              </div>
 
-          <div className="cms-form__field">
-            <div className="perks-header">
-              <label>Tier Perks List (Bullet Points)</label>
-              <button type="button" onClick={handleAddPerk} className="add-perk-btn">
-                + Add Perk Line
-              </button>
-            </div>
-
-            <div ref={perksContainerRef} aria-live="polite" className="perks-list-inputs">
-              {fields.map((field, index) => (
-                <div key={field.id} className="perk-input-row">
-                  <input
-                    {...register(`perks.${index}.value`)}
-                    className="perk-input"
-                    placeholder="e.g. Monthly newsletter updates"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => remove(index)}
-                    aria-label={`Remove perk ${index + 1}`}
-                    className="remove-perk-btn"
-                  >
-                    ✕
+              <div className="cms-form__field">
+                <div className="perks-header">
+                  <label>Tier Perks List (Bullet Points)</label>
+                  <button type="button" onClick={handleAddPerk} className="add-perk-btn">
+                    + Add Perk Line
                   </button>
                 </div>
-              ))}
+
+                <div ref={perksContainerRef} aria-live="polite" className="perks-list-inputs">
+                  {fields.map((field, index) => (
+                    <div key={field.id} className="perk-input-row">
+                      <input
+                        {...register(`perks.${index}.value`)}
+                        className="perk-input"
+                        placeholder="e.g. Monthly newsletter updates"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => remove(index)}
+                        aria-label={`Remove perk ${index + 1}`}
+                        className="remove-perk-btn"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="sidebar-workspace">
+              <MarkdownHelper />
             </div>
           </div>
 

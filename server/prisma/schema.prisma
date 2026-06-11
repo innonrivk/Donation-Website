@@ -193,6 +193,7 @@ enum SectionIdentifier {
   DONATION_TIERS
   DONATION_ROADMAP
   TANGIBLE_IMPACT
+  FOOTER
 }
 
 model SiteText {

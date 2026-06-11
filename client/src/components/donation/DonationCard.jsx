@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { formatContentInline } from '../../utils/formatContent';
 import './DonationCard.css';
 
 export default function DonationCard({ box, onDonate, isPopular = false, isExpanded = false, onToggleExpand }) {
@@ -53,7 +54,7 @@ export default function DonationCard({ box, onDonate, isPopular = false, isExpan
         <div className="donation-card__badge">Most Popular</div>
       )}
       <div className="donation-card__header">
-        <h3 className="donation-card__title">{box.title}</h3>
+        <h3 className="donation-card__title">{formatContentInline(box.title)}</h3>
         <div className="donation-card__price">
           <span className="donation-card__currency">$</span>
           <span className="donation-card__amount">{box.amount}</span>
@@ -66,7 +67,7 @@ export default function DonationCard({ box, onDonate, isPopular = false, isExpan
         style={{ maxHeight: dynamicHeight }}
         ref={perksRef}
       >
-        {detailsText && <p className="donation-card__details">{detailsText}</p>}
+        {detailsText && <p className="donation-card__details">{formatContentInline(detailsText)}</p>}
         <div className="donation-card__divider" />
         <ul className="donation-card__perks">
           {perksList.map((perk, i) => (
@@ -74,7 +75,7 @@ export default function DonationCard({ box, onDonate, isPopular = false, isExpan
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-              {perk.trim()}
+              {formatContentInline(perk.trim())}
             </li>
           ))}
         </ul>
@@ -88,7 +89,7 @@ export default function DonationCard({ box, onDonate, isPopular = false, isExpan
           onDonate(box.amount, box.isRecurring !== false);
         }}
       >
-        {box.buttonText || `Donate $${box.amount}/mo`}
+        {box.buttonText ? formatContentInline(box.buttonText) : `Donate $${box.amount}/mo`}
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="5" y1="12" x2="19" y2="12" />
           <polyline points="12 5 19 12 12 19" />

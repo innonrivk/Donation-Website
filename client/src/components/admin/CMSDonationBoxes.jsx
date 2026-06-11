@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { adminApi } from '../../lib/api';
+import MarkdownHelper from './MarkdownHelper';
 
 const DonationBoxSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -133,57 +134,65 @@ export default function CMSDonationBoxes() {
 
       {isFormOpen ? (
         <form onSubmit={handleSubmit((d) => saveMutation.mutate(d))} className="cms-form glass animate-fade-in">
-          <h3>{editingBox ? `Edit Card: ${editingBox.title}` : 'Add Donation Card Option'}</h3>
+          <div className="workspace-container">
+            <div className="fields-workspace">
+              <h3>{editingBox ? `Edit Card: ${editingBox.title}` : 'Add Donation Card Option'}</h3>
 
-          <div className="cms-form__grid">
-            <div className="cms-form__field">
-              <label>Card Title</label>
-              <input {...register('title')} placeholder="e.g. Supporter" />
-              {errors.title && <span className="field-error">{errors.title.message}</span>}
+              <div className="cms-form__grid">
+                <div className="cms-form__field">
+                  <label>Card Title</label>
+                  <input {...register('title')} placeholder="e.g. Supporter" />
+                  {errors.title && <span className="field-error">{errors.title.message}</span>}
+                </div>
+
+                <div className="cms-form__field">
+                  <label>Amount ($)</label>
+                  <input type="number" step="0.01" {...register('amount')} placeholder="e.g. 10.00" />
+                  {errors.amount && <span className="field-error">{errors.amount.message}</span>}
+                </div>
+
+                <div className="cms-form__field">
+                  <label>Link to Level/Tier</label>
+                  <select {...register('tierId')}>
+                    <option value="">-- No Linked Tier --</option>
+                    {tiers.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name} (${t.minAmount}+)</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="cms-form__field">
+                  <label>Card Highlight Subtext</label>
+                  <input {...register('tierDetails')} placeholder="e.g. Ideal for individuals" />
+                </div>
+
+                <div className="cms-form__field">
+                  <label>Button Text</label>
+                  <input {...register('buttonText')} placeholder="e.g. Join tier" />
+                </div>
+
+                <div className="cms-form__field">
+                  <label>Display Position Order</label>
+                  <input type="number" {...register('displayOrder')} />
+                </div>
+              </div>
+
+              <div className="cms-form__row-checkboxes">
+                <label className="checkbox-label">
+                  <input type="checkbox" {...register('isCustomAmount')} /> Is Custom Input Box
+                </label>
+                <label className="checkbox-label">
+                  <input type="checkbox" {...register('isRecurring')} /> Is Subscription / Monthly
+                </label>
+                <label className="checkbox-label">
+                  <input type="checkbox" {...register('isActive')} /> Is Card Active/Visible
+                </label>
+              </div>
             </div>
 
-            <div className="cms-form__field">
-              <label>Amount ($)</label>
-              <input type="number" step="0.01" {...register('amount')} placeholder="e.g. 10.00" />
-              {errors.amount && <span className="field-error">{errors.amount.message}</span>}
+            <div className="sidebar-workspace">
+              <MarkdownHelper />
             </div>
-
-            <div className="cms-form__field">
-              <label>Link to Level/Tier</label>
-              <select {...register('tierId')}>
-                <option value="">-- No Linked Tier --</option>
-                {tiers.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name} (${t.minAmount}+)</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="cms-form__field">
-              <label>Card Highlight Subtext</label>
-              <input {...register('tierDetails')} placeholder="e.g. Ideal for individuals" />
-            </div>
-
-            <div className="cms-form__field">
-              <label>Button Text</label>
-              <input {...register('buttonText')} placeholder="e.g. Join tier" />
-            </div>
-
-            <div className="cms-form__field">
-              <label>Display Position Order</label>
-              <input type="number" {...register('displayOrder')} />
-            </div>
-          </div>
-
-          <div className="cms-form__row-checkboxes">
-            <label className="checkbox-label">
-              <input type="checkbox" {...register('isCustomAmount')} /> Is Custom Input Box
-            </label>
-            <label className="checkbox-label">
-              <input type="checkbox" {...register('isRecurring')} /> Is Subscription / Monthly
-            </label>
-            <label className="checkbox-label">
-              <input type="checkbox" {...register('isActive')} /> Is Card Active/Visible
-            </label>
           </div>
 
           <div className="cms-form__actions">

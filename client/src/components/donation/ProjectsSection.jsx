@@ -140,6 +140,9 @@ export default function ProjectsSection({ projects }) {
     >
       <div className="container">
         <div className="projects-section__header">
+          <span className="projects-section__label">
+            {formatContentInline(useContent(CONTENT_KEYS.PROJECTS_LABEL, 'Where Your Money Goes'))}
+          </span>
           <h2 className="projects-section__title">
             {formatContentInline(useContent(CONTENT_KEYS.PROJECTS_TITLE, 'Active **Projects**'))}
           </h2>
@@ -269,14 +272,14 @@ function ProjectCard({
       <div className="project-card__icon-wrap">
         <ProjectIcon name={project.projectName} />
       </div>
-      <h3 className="project-card__name">{project.projectName}</h3>
+      <h3 className="project-card__name">{formatContentInline(project.projectName)}</h3>
       
       <div
         className="project-card__details-wrap"
         style={{ maxHeight: maxHeightStyle }}
         ref={detailsRef}
       >
-        <p className="project-card__details">{project.details}</p>
+        <p className="project-card__details">{formatContentInline(project.details)}</p>
         <div className="project-card__fade-mask" />
       </div>
 

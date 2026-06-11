@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { adminApi } from '../../lib/api';
+import MarkdownHelper from './MarkdownHelper';
 
 const MilestoneSchema = z.object({
   amountUsd: z.preprocess((val) => parseInt(val, 10), z.number().int().min(1, 'Amount must be at least $1')),
@@ -102,37 +103,45 @@ export default function CMSMilestones() {
 
       {isFormOpen ? (
         <form onSubmit={handleSubmit((d) => saveMutation.mutate(d))} className="cms-form glass animate-fade-in">
-          <h3>{editingMilestone ? `Edit Milestone: ${editingMilestone.label}` : 'Create Donation Milestone'}</h3>
+          <div className="workspace-container">
+            <div className="fields-workspace">
+              <h3>{editingMilestone ? `Edit Milestone: ${editingMilestone.label}` : 'Create Donation Milestone'}</h3>
 
-          <div className="cms-form__grid">
-            <div className="cms-form__field">
-              <label>Milestone Name / Label</label>
-              <input {...register('label')} placeholder="e.g. Silver Friend" />
-              {errors.label && <span className="field-error">{errors.label.message}</span>}
+              <div className="cms-form__grid">
+                <div className="cms-form__field">
+                  <label>Milestone Name / Label</label>
+                  <input {...register('label')} placeholder="e.g. Silver Friend" />
+                  {errors.label && <span className="field-error">{errors.label.message}</span>}
+                </div>
+
+                <div className="cms-form__field">
+                  <label>Target Amount ($)</label>
+                  <input type="number" {...register('amountUsd')} placeholder="e.g. 1000" />
+                  {errors.amountUsd && <span className="field-error">{errors.amountUsd.message}</span>}
+                </div>
+
+                <div className="cms-form__field">
+                  <label>Display Position Order</label>
+                  <input type="number" {...register('displayOrder')} />
+                </div>
+
+                <div className="cms-form__field">
+                  <label>Description / Reward text</label>
+                  <input {...register('description')} placeholder="e.g. Silver friend certificate sent to your home" />
+                  {errors.description && <span className="field-error">{errors.description.message}</span>}
+                </div>
+              </div>
+
+              <div className="cms-form__row-checkboxes">
+                <label className="checkbox-label">
+                  <input type="checkbox" {...register('isRepeatable')} /> Is Repeatable One-Time Objective
+                </label>
+              </div>
             </div>
 
-            <div className="cms-form__field">
-              <label>Target Amount ($)</label>
-              <input type="number" {...register('amountUsd')} placeholder="e.g. 1000" />
-              {errors.amountUsd && <span className="field-error">{errors.amountUsd.message}</span>}
+            <div className="sidebar-workspace">
+              <MarkdownHelper />
             </div>
-
-            <div className="cms-form__field">
-              <label>Display Position Order</label>
-              <input type="number" {...register('displayOrder')} />
-            </div>
-
-            <div className="cms-form__field">
-              <label>Description / Reward text</label>
-              <input {...register('description')} placeholder="e.g. Silver friend certificate sent to your home" />
-              {errors.description && <span className="field-error">{errors.description.message}</span>}
-            </div>
-          </div>
-
-          <div className="cms-form__row-checkboxes">
-            <label className="checkbox-label">
-              <input type="checkbox" {...register('isRepeatable')} /> Is Repeatable One-Time Objective
-            </label>
           </div>
 
           <div className="cms-form__actions">

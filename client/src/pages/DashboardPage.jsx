@@ -8,6 +8,7 @@ import DashboardHistorySection from '../components/dashboard/DashboardHistorySec
 import DashboardModals from '../components/dashboard/DashboardModals';
 import { useDonationState } from '../hooks/useDonationState';
 import * as api from '../services/api';
+import { formatContentInline } from '../utils/formatContent';
 import './DashboardPage.css';
 
 /**
@@ -149,7 +150,7 @@ export default function DashboardPage() {
                   data.scheduledAmount >= t.minAmount &&
                   (t.maxAmount === null || data.scheduledAmount <= t.maxAmount)
                 );
-                return scheduledTier ? <> ({scheduledTier.name} tier)</> : null;
+                return scheduledTier ? <> ({formatContentInline(scheduledTier.name)} tier)</> : null;
               })()} has been scheduled and will take effect at the end of the current billing cycle.
             </div>
             {isDev && (

@@ -51,6 +51,9 @@ export default function DonationProgramDetails({ tiers, milestones }) {
         {hasTiers && (
           <>
             <div className="program-details__header">
+              <span className="program-details__label">
+                {formatContentInline(useContent(CONTENT_KEYS.TIERS_LABEL, 'Your Benefits'))}
+              </span>
               <h2 className="program-details__title">
                 {formatContentInline(useContent(CONTENT_KEYS.TIERS_TITLE, 'Donation **Tiers**'))}
               </h2>
@@ -75,7 +78,7 @@ export default function DonationProgramDetails({ tiers, milestones }) {
                       <div className="tier-card__badge">Best Value</div>
                     )}
                     <div className="tier-card__icon">{icon}</div>
-                    <h3 className="tier-card__name">{tier.name}</h3>
+                    <h3 className="tier-card__name">{formatContentInline(tier.name)}</h3>
                     <span className="tier-card__range">{getTierRange(tier)}</span>
                     <div className="tier-card__divider" />
                     <ul className="tier-card__perks">
@@ -93,7 +96,7 @@ export default function DonationProgramDetails({ tiers, milestones }) {
                           >
                             <polyline points="20 6 9 17 4 12" />
                           </svg>
-                          {perk}
+                          {formatContentInline(perk)}
                         </li>
                       ))}
                     </ul>
@@ -111,6 +114,9 @@ export default function DonationProgramDetails({ tiers, milestones }) {
             {milestones.some(m => !m.isRepeatable) && (
               <div className="milestones-track-section" style={{ marginBottom: '5rem' }}>
                 <div className="milestones-header">
+                  <span className="milestones-header__label">
+                    {formatContentInline(useContent(CONTENT_KEYS.ROADMAP_LABEL, 'Monthly Rewards'))}
+                  </span>
                   <h2 className="milestones-header__title">
                     {formatContentInline(useContent(CONTENT_KEYS.ROADMAP_TITLE, 'Monthly Donation **Roadmap**'))}
                   </h2>
@@ -129,9 +135,9 @@ export default function DonationProgramDetails({ tiers, milestones }) {
                         <span className="milestone-item__amount">
                           ${m.amountUsd.toLocaleString()}
                         </span>
-                        <span className="milestone-item__label">{m.label}</span>
+                        <span className="milestone-item__label">{formatContentInline(m.label)}</span>
                       </div>
-                      <p className="milestone-item__desc">{m.description}</p>
+                      <p className="milestone-item__desc">{formatContentInline(m.description)}</p>
                     </div>
                   ))}
                 </div>
@@ -142,6 +148,9 @@ export default function DonationProgramDetails({ tiers, milestones }) {
             {milestones.some(m => m.isRepeatable) && (
               <div className="milestones-track-section">
                 <div className="milestones-header">
+                  <span className="milestones-header__label">
+                    {formatContentInline(useContent(CONTENT_KEYS.IMPACT_LABEL, 'One-Time Objectives'))}
+                  </span>
                   <h2 className="milestones-header__title">
                     {formatContentInline(useContent(CONTENT_KEYS.IMPACT_TITLE, 'Tangible Impact **Objectives**'))}
                   </h2>
@@ -161,9 +170,9 @@ export default function DonationProgramDetails({ tiers, milestones }) {
                           ${m.amountUsd.toLocaleString()}
                         </span>
                         <span className="milestone-item__repeatable">Repeatable Objective</span>
-                        <span className="milestone-item__label" style={{ background: 'rgba(49, 151, 149, 0.1)', color: '#319795' }}>{m.label}</span>
+                        <span className="milestone-item__label" style={{ background: 'rgba(49, 151, 149, 0.1)', color: '#319795' }}>{formatContentInline(m.label)}</span>
                       </div>
-                      <p className="milestone-item__desc">{m.description}</p>
+                      <p className="milestone-item__desc">{formatContentInline(m.description)}</p>
                     </div>
                   ))}
                 </div>

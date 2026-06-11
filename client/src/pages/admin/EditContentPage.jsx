@@ -3,6 +3,7 @@ import { useForm, FormProvider, useFormContext } from 'react-hook-form';
 import { adminApi, publicApi } from '../../lib/api';
 import { CONTENT_KEYS } from '../../lib/contentKeys';
 import { motion, AnimatePresence } from 'framer-motion';
+import MarkdownHelper from '../../components/admin/MarkdownHelper';
 import './EditContentPage.css';
 
 const TABS = [
@@ -12,6 +13,7 @@ const TABS = [
   { id: 'DONATION_TIERS', label: 'Donation Tiers', icon: '⭐' },
   { id: 'DONATION_ROADMAP', label: 'Roadmap Track', icon: '🏆' },
   { id: 'TANGIBLE_IMPACT', label: 'Impact Targets', icon: '📊' },
+  { id: 'FOOTER', label: 'Footer Settings', icon: '📝' },
 ];
 
 const FIELDS_BY_SECTION = {
@@ -37,6 +39,13 @@ const FIELDS_BY_SECTION = {
   ],
   ACTIVE_PROJECTS: [
     {
+      key: CONTENT_KEYS.PROJECTS_LABEL,
+      label: 'Projects Section Label',
+      description: 'The small label above the projects heading. Supports formatting style markers.',
+      placeholder: 'e.g. Where Your **Money** Goes',
+      rows: 1,
+    },
+    {
       key: CONTENT_KEYS.PROJECTS_TITLE,
       label: 'Projects Section Title',
       description: 'Main heading above the active projects carousel. Supports all formatting styles.',
@@ -50,6 +59,13 @@ const FIELDS_BY_SECTION = {
     },
   ],
   DONATION_BOXES: [
+    {
+      key: CONTENT_KEYS.BOXES_LABEL,
+      label: 'Donation Grid Label',
+      description: 'The small label above the donation boxes heading. Supports formatting style markers.',
+      placeholder: 'e.g. Make an **Impact**',
+      rows: 1,
+    },
     {
       key: CONTENT_KEYS.BOXES_TITLE,
       label: 'Donation Grid Title',
@@ -65,6 +81,13 @@ const FIELDS_BY_SECTION = {
   ],
   DONATION_TIERS: [
     {
+      key: CONTENT_KEYS.TIERS_LABEL,
+      label: 'Tiers Section Label',
+      description: 'The small label above the donation tiers heading. Supports formatting style markers.',
+      placeholder: 'e.g. Your **Benefits**',
+      rows: 1,
+    },
+    {
       key: CONTENT_KEYS.TIERS_TITLE,
       label: 'Tiers Section Title',
       description: 'Heading for the monthly subscription benefit levels. Supports all formatting styles.',
@@ -78,6 +101,13 @@ const FIELDS_BY_SECTION = {
     },
   ],
   DONATION_ROADMAP: [
+    {
+      key: CONTENT_KEYS.ROADMAP_LABEL,
+      label: 'Roadmap Track Label',
+      description: 'The small label above the roadmap track heading. Supports formatting style markers.',
+      placeholder: 'e.g. Monthly **Rewards**',
+      rows: 1,
+    },
     {
       key: CONTENT_KEYS.ROADMAP_TITLE,
       label: 'Roadmap Track Title',
@@ -93,6 +123,13 @@ const FIELDS_BY_SECTION = {
   ],
   TANGIBLE_IMPACT: [
     {
+      key: CONTENT_KEYS.IMPACT_LABEL,
+      label: 'Impact Section Label',
+      description: 'The small label above the impact section heading. Supports formatting style markers.',
+      placeholder: 'e.g. One-Time **Objectives**',
+      rows: 1,
+    },
+    {
       key: CONTENT_KEYS.IMPACT_TITLE,
       label: 'Impact Section Title',
       description: 'Heading for repeatable objectives. Supports all formatting styles.',
@@ -105,7 +142,51 @@ const FIELDS_BY_SECTION = {
       rows: 4,
     },
   ],
+  FOOTER: [
+    {
+      key: CONTENT_KEYS.FOOTER_BRAND_NAME,
+      label: 'Brand Name',
+      description: 'The primary brand name displayed in the footer. Supports formatting styles.',
+      placeholder: 'e.g. OpenmindProjects',
+      rows: 1,
+    },
+    {
+      key: CONTENT_KEYS.FOOTER_BRAND_DESC,
+      label: 'Brand Description',
+      description: 'The short paragraph text underneath the brand name.',
+      rows: 3,
+    },
+    {
+      key: CONTENT_KEYS.FOOTER_TAGLINE,
+      label: 'Footer Tagline',
+      description: 'The short tagline displayed above or next to copyright info.',
+      rows: 2,
+    },
+  ],
 };
+
+/**
+ * Standard form textarea input mapper.
+ */
+function FormField({ field }) {
+  const { register } = useFormContext();
+  
+  return (
+    <div className="form-group">
+      <label className="form-label">
+        {field.label}
+        <span className="form-key">({field.key})</span>
+      </label>
+      <p className="field-hint">{field.description}</p>
+      <textarea
+        className="form-textarea"
+        rows={field.rows}
+        placeholder={field.placeholder || `Input markdown formatted copy for ${field.label}...`}
+        {...register(field.key, { required: 'This field is required' })}
+      />
+    </div>
+  );
+}
 
 /**
  * EditContentPage — Structured tab layout to manage page content fragments.
@@ -318,62 +399,5 @@ export default function EditContentPage() {
         </form>
       </div>
     </FormProvider>
-  );
-}
-
-/**
- * Standard form textarea input mapper.
- */
-function FormField({ field }) {
-  const { register } = useFormContext(); // Extracted from parent FormProvider context
-  
-  return (
-    <div className="form-group">
-      <label className="form-label">
-        {field.label}
-        <span className="form-key">({field.key})</span>
-      </label>
-      <p className="field-hint">{field.description}</p>
-      <textarea
-        className="form-textarea"
-        rows={field.rows}
-        placeholder={`Input markdown formatted copy for ${field.label}...`}
-        {...register(field.key, { required: 'This field is required' })}
-      />
-    </div>
-  );
-}
-
-/**
- * Markdown guide sidebar helper.
- */
-function MarkdownHelper() {
-  return (
-    <div className="markdown-helper-card">
-      <h3 className="helper-title">💡 Formatting Guide</h3>
-      <p className="helper-desc">Custom styles supported on our public layout components:</p>
-      <ul className="helper-list">
-        <li>
-          <code>**Text**</code>
-          <span>Blue/Teal Gradient highlight.</span>
-        </li>
-        <li>
-          <code>$$Text$$</code>
-          <span>Gold Gradient highlight.</span>
-        </li>
-        <li>
-          <code>*Text*</code>
-          <span>Renders standard <strong>bold</strong> text.</span>
-        </li>
-        <li>
-          <code>__Text__</code>
-          <span>Renders <span style={{ textDecoration: 'underline' }}>underlined</span> text.</span>
-        </li>
-        <li>
-          <code>\n\n</code>
-          <span>Forces a paragraph break.</span>
-        </li>
-      </ul>
-    </div>
   );
 }

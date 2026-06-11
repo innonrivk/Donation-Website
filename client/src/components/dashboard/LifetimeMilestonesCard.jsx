@@ -1,5 +1,5 @@
-
-
+import React from 'react';
+import { formatContentInline } from '../../utils/formatContent';
 /**
  * LifetimeMilestonesCard renders historical achievement goals for the donor.
  * Allows unlocking and claiming certs/rewards.
@@ -59,7 +59,7 @@ export default function LifetimeMilestonesCard({
             <div key={m.id} className={`dash-milestone ${isUnlocked ? 'dash-milestone--unlocked' : ''}`}>
               <div className="dash-milestone__header">
                 <span className="dash-milestone__label" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
-                  {m.label}
+                  {formatContentInline(m.label)}
                   {m.isRepeatable && claimCount > 0 && (
                     <span className="dash-milestone__repeat-count" style={{ fontSize: '11px', opacity: 0.8 }}>
                       🔁 {claimCount}×
@@ -81,7 +81,7 @@ export default function LifetimeMilestonesCard({
               <div className="dash-milestone__bar">
                 <div className="dash-milestone__fill" style={{ width: `${progress}%` }} />
               </div>
-              <p className="dash-milestone__desc">{m.description}</p>
+              <p className="dash-milestone__desc">{formatContentInline(m.description)}</p>
               {isUnlocked && !claimedPermanently && (
                 <button
                   className="dash-milestone__claim"

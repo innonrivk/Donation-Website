@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { adminApi } from '../../lib/api';
 import TipTapEditor from './TipTapEditor';
+import MarkdownHelper from './MarkdownHelper';
 
 const ContentSchema = z.object({
   head: z.string().min(1, 'Title heading is required'),
@@ -98,36 +99,44 @@ export default function CMSWebsiteContent() {
 
       {isFormOpen ? (
         <form onSubmit={handleSubmit(onSubmit)} className="cms-form glass animate-fade-in">
-          <h3>{editingContent ? `Edit Version Block v${editingContent.version}` : 'Create New Version Block'}</h3>
+          <div className="workspace-container">
+            <div className="fields-workspace">
+              <h3>{editingContent ? `Edit Version Block v${editingContent.version}` : 'Create New Version Block'}</h3>
 
-          <div className="cms-form__field">
-            <label>Heading</label>
-            <input {...register('head')} placeholder="e.g. Help volunteer educators build schools" />
-            {errors.head && <span className="field-error">{errors.head.message}</span>}
-          </div>
+              <div className="cms-form__field">
+                <label>Heading</label>
+                <input {...register('head')} placeholder="e.g. Help volunteer educators build schools" />
+                {errors.head && <span className="field-error">{errors.head.message}</span>}
+              </div>
 
-          <div className="cms-form__field">
-            <label>Subtitle Description</label>
-            <input {...register('subtitle')} placeholder="e.g. Join the 500+ sponsors supporting OpenmindProjects camps..." />
-            {errors.subtitle && <span className="field-error">{errors.subtitle.message}</span>}
-          </div>
+              <div className="cms-form__field">
+                <label>Subtitle Description</label>
+                <input {...register('subtitle')} placeholder="e.g. Join the 500+ sponsors supporting OpenmindProjects camps..." />
+                {errors.subtitle && <span className="field-error">{errors.subtitle.message}</span>}
+              </div>
 
-          <div className="cms-form__field">
-            <label>Version Number</label>
-            <input type="number" {...register('version')} disabled={!!editingContent} />
-            {errors.version && <span className="field-error">{errors.version.message}</span>}
-          </div>
+              <div className="cms-form__field">
+                <label>Version Number</label>
+                <input type="number" {...register('version')} disabled={!!editingContent} />
+                {errors.version && <span className="field-error">{errors.version.message}</span>}
+              </div>
 
-          <div className="cms-form__field">
-            <label>Content Body (Rich HTML)</label>
-            <Controller
-              name="body"
-              control={control}
-              render={({ field }) => (
-                <TipTapEditor value={field.value} onChange={field.onChange} />
-              )}
-            />
-            {errors.body && <span className="field-error">{errors.body.message}</span>}
+              <div className="cms-form__field">
+                <label>Content Body (Rich HTML)</label>
+                <Controller
+                  name="body"
+                  control={control}
+                  render={({ field }) => (
+                    <TipTapEditor value={field.value} onChange={field.onChange} />
+                  )}
+                />
+                {errors.body && <span className="field-error">{errors.body.message}</span>}
+              </div>
+            </div>
+
+            <div className="sidebar-workspace">
+              <MarkdownHelper />
+            </div>
           </div>
 
           <div className="cms-form__actions">

@@ -25,7 +25,7 @@
   display: inline-block;
   font-size: var(--font-size-sm);
   font-weight: 600;
-  color: var(--color-accent-secondary);
+  color: #000000;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   margin-bottom: var(--space-sm);

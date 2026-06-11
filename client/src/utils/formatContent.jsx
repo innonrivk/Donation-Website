@@ -19,11 +19,23 @@ function parseTextRecursive(text) {
 
   let earliestMatch = null;
   let earliestIndex = Infinity;
-  let matchType = null; // 'gradient' | 'gold' | 'bold' | 'underline'
+  let matchType = null; // 'bold-gradient' | 'gradient' | 'gold' | 'underline' | 'bold'
+
+  // Match: ***text*** (Bold Gradient)
+  // Why check triple asterisks first? To ensure that the combined bold and gradient formatting
+  // takes priority and does not get partially matched by double or single asterisk rules.
+  const tripleRegex = /\*\*\*(.*?)\*\*\*/g;
+  let match;
+  while ((match = tripleRegex.exec(text)) !== null) {
+    if (match.index < earliestIndex) {
+      earliestIndex = match.index;
+      earliestMatch = match;
+      matchType = 'bold-gradient';
+    }
+  }
 
   // Match: **text** (Primary Gradient)
   const gradRegex = /\*\*(.*?)\*\*/g;
-  let match;
   while ((match = gradRegex.exec(text)) !== null) {
     if (match.index < earliestIndex) {
       earliestIndex = match.index;
@@ -53,11 +65,14 @@ function parseTextRecursive(text) {
   }
 
   // Match: *text* (Bold)
-  // Why match non-asterisks? Avoids greedily matching parts of double asterisks (**).
-  const boldRegex = /\*([^*]+)\*/g;
+  // Why use this boundary regex instead of lookbehinds? Safari versions below 16.4 do not support 
+  // negative lookbehinds (?<!...) and will throw a fatal SyntaxError. Using a captured boundary 
+  // group allows us to safely ensure we only match outer standalone asterisks in a fully cross-browser manner.
+  const boldRegex = /(^|[^*])\*([^*].*?[^*]|[^*])\*(?=[^*]|$)/g;
   while ((match = boldRegex.exec(text)) !== null) {
-    if (match.index < earliestIndex) {
-      earliestIndex = match.index;
+    const actualIndex = match.index + match[1].length;
+    if (actualIndex < earliestIndex) {
+      earliestIndex = actualIndex;
       earliestMatch = match;
       matchType = 'bold';
     }
@@ -68,16 +83,34 @@ function parseTextRecursive(text) {
     return [text];
   }
 
+  // Why calculate prefix/suffix with dynamic length? Since the bold regex captures the preceding 
+  // boundary character in match[1], the actual text we replace has a offset start and shorter length.
   const prefix = text.slice(0, earliestIndex);
-  const innerText = earliestMatch[1];
-  const suffix = text.slice(earliestIndex + earliestMatch[0].length);
+  let innerText;
+  let matchLength;
+  if (matchType === 'bold') {
+    innerText = earliestMatch[2];
+    matchLength = earliestMatch[0].length - earliestMatch[1].length;
+  } else {
+    innerText = earliestMatch[1];
+    matchLength = earliestMatch[0].length;
+  }
+  const suffix = text.slice(earliestIndex + matchLength);
 
   const parsedInner = parseTextRecursive(innerText);
 
   let wrappedElement;
   const key = `fmt-${earliestIndex}-${matchType}`;
 
-  if (matchType === 'gradient') {
+  // Why nested wrappers for bold-gradient? Wrapping a span with gradient-text inside a strong element
+  // with bold-text ensures both font-weight and gradient background clipping apply cleanly together.
+  if (matchType === 'bold-gradient') {
+    wrappedElement = (
+      <strong key={key} className="bold-text">
+        <span className="gradient-text">{parsedInner}</span>
+      </strong>
+    );
+  } else if (matchType === 'gradient') {
     wrappedElement = <span key={key} className="gradient-text">{parsedInner}</span>;
   } else if (matchType === 'gold') {
     wrappedElement = <span key={key} className="gradient-gold">{parsedInner}</span>;

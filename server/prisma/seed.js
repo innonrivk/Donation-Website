@@ -87,13 +87,24 @@ async function main() {
   await prisma.donationBox.createMany({
     data: [
       {
-        title: 'Custom Amount',
+        title: 'One-Time Donation',
         amount: 0,
-        tierDetails: 'Choose your own amount and make a difference',
+        tierDetails: 'Choose your own one-time donation amount',
         buttonText: 'Donate',
         isCustomAmount: true,
+        isRecurring: false,
         isActive: true,
         displayOrder: 1,
+      },
+      {
+        title: 'Monthly Donation',
+        amount: 0,
+        tierDetails: 'Choose your own monthly donation amount',
+        buttonText: 'Donate',
+        isCustomAmount: true,
+        isRecurring: true,
+        isActive: true,
+        displayOrder: 2,
       },
       {
         title: 'Regular',
@@ -158,6 +169,11 @@ async function main() {
       },
       // ACTIVE_PROJECTS Section
       {
+        key: 'projects_label',
+        value: 'Where Your **Money** Goes',
+        section: 'ACTIVE_PROJECTS',
+      },
+      {
         key: 'projects_title',
         value: 'Active Projects',
         section: 'ACTIVE_PROJECTS',
@@ -168,6 +184,11 @@ async function main() {
         section: 'ACTIVE_PROJECTS',
       },
       // DONATION_BOXES Section
+      {
+        key: 'boxes_label',
+        value: 'Make an **Impact**',
+        section: 'DONATION_BOXES',
+      },
       {
         key: 'boxes_title',
         value: 'Choose Your Donation',
@@ -180,6 +201,11 @@ async function main() {
       },
       // DONATION_TIERS Section
       {
+        key: 'tiers_label',
+        value: 'Your **Benefits**',
+        section: 'DONATION_TIERS',
+      },
+      {
         key: 'tiers_title',
         value: 'Donation Tiers',
         section: 'DONATION_TIERS',
@@ -190,6 +216,11 @@ async function main() {
         section: 'DONATION_TIERS',
       },
       // DONATION_ROADMAP Section
+      {
+        key: 'roadmap_label',
+        value: 'Monthly **Rewards**',
+        section: 'DONATION_ROADMAP',
+      },
       {
         key: 'roadmap_title',
         value: 'Monthly Donation Roadmap',
@@ -202,6 +233,11 @@ async function main() {
       },
       // TANGIBLE_IMPACT Section
       {
+        key: 'impact_label',
+        value: 'One-Time **Objectives**',
+        section: 'TANGIBLE_IMPACT',
+      },
+      {
         key: 'impact_title',
         value: 'Tangible Impact Objectives',
         section: 'TANGIBLE_IMPACT',
@@ -210,6 +246,22 @@ async function main() {
         key: 'impact_intro',
         value: 'We focus on clear, measurable impact metrics. See what achievements our donor community has unlocked.',
         section: 'TANGIBLE_IMPACT',
+      },
+      // FOOTER Section
+      {
+        key: 'footer_brand_name',
+        value: '**OpenmindProjects**',
+        section: 'FOOTER',
+      },
+      {
+        key: 'footer_brand_desc',
+        value: 'Building stronger communities through sustainable development initiatives.',
+        section: 'FOOTER',
+      },
+      {
+        key: 'footer_tagline',
+        value: 'Every donation makes a difference 💜',
+        section: 'FOOTER',
       },
     ],
   });

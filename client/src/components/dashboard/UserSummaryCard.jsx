@@ -1,5 +1,5 @@
-
 import { motion } from 'framer-motion';
+import { formatContentInline } from '../../utils/formatContent';
 
 /**
  * UserSummaryCard renders the profile information, active subscription tier badge,
@@ -55,7 +55,7 @@ export default function UserSummaryCard({
         <div className="dash-stat">
           <span className="dash-stat__label">Current Tier</span>
           <span className="dash-stat__value" style={{ color: tc.border }}>
-            {tier?.name || 'None'}
+            {tier?.name ? formatContentInline(tier.name) : 'None'}
           </span>
         </div>
         <div className="dash-stat">
@@ -92,7 +92,7 @@ export default function UserSummaryCard({
 
       {tier && (
         <div className="dash-tier-badge" style={{ background: tc.bg, borderColor: tc.border }}>
-          ✦ {tier.name} Tier
+          ✦ {formatContentInline(tier.name)} Tier
         </div>
       )}
     </section>
